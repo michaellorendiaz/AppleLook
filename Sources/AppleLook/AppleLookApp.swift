@@ -1,0 +1,61 @@
+import AppKit
+import SwiftUI
+
+@main
+struct AppleLookApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
+    @StateObject private var model = AppModel.shared
+
+    var body: some Scene {
+        MenuBarExtra("AppleLook", systemImage: model.lastError == nil ? "calendar.badge.clock" : "calendar.badge.exclamationmark") {
+            MenuContent(model: model)
+        }
+    }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        AppModel.shared.start()
+    }
+}
+
+struct MenuContent: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        Text(model.statusLine)
+        if let error = model.lastError {
+            Text(error)
+        }
+        Divider()
+        Button("Sync Now") { Task { await model.syncNow() } }
+            .disabled(!model.settings.isComplete || model.isSyncing)
+        Button("Settings…") { SetupWindow.show() }
+            .keyboardShortcut(",")
+        Divider()
+        Button("Quit AppleLook") { NSApp.terminate(nil) }
+            .keyboardShortcut("q")
+    }
+}
+
+/// The setup/settings window. Managed by hand so it can open on first launch
+/// without opening on every login.
+@MainActor
+enum SetupWindow {
+    private static var window: NSWindow?
+
+    static func show() {
+        if window == nil {
+            let host = NSHostingController(rootView: SetupView(model: .shared))
+            host.sizingOptions = .preferredContentSize
+            let w = NSWindow(contentViewController: host)
+            w.title = "AppleLook Settings"
+            w.styleMask = [.titled, .closable, .miniaturizable]
+            w.isReleasedWhenClosed = false
+            w.center()
+            window = w
+        }
+        NSApp.activate()
+        window?.makeKeyAndOrderFront(nil)
+    }
+}

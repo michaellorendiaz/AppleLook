@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>
+  <string>AppleLook</string>
+  <key>CFBundleDisplayName</key>
+  <string>AppleLook</string>
+  <key>CFBundleIdentifier</key>
+  <string>io.github.michaellorendiaz.applelook</string>
+  <key>CFBundleExecutable</key>
+  <string>AppleLook</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1.0</string>
+  <key>CFBundleVersion</key>
+  <string>1</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>14.0</string>
+  <key>LSUIElement</key>
+  <true/>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.productivity</string>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>AppleLook copies your Outlook meetings into the calendar you choose, and reads that calendar to keep its copies up to date. It never changes events it didn't add.</string>
+  <key>NSHumanReadableCopyright</key>
+  <string>Copyright © 2026 Michael Diaz. MIT License.</string>
+</dict>
+</plist>
