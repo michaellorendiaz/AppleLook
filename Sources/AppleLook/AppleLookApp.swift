@@ -47,10 +47,14 @@ enum SetupWindow {
     static func show() {
         if window == nil {
             let host = NSHostingController(rootView: SetupView(model: .shared))
-            host.sizingOptions = .preferredContentSize
+            // A grouped Form scrolls and has no natural height; sizing the window from it
+            // (sizingOptions = .preferredContentSize) crashes AppKit's layout pass
+            host.sizingOptions = []
             let w = NSWindow(contentViewController: host)
             w.title = "AppleLook Settings"
-            w.styleMask = [.titled, .closable, .miniaturizable]
+            w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+            w.setContentSize(NSSize(width: 560, height: 720))
+            w.contentMinSize = NSSize(width: 560, height: 420)
             w.isReleasedWhenClosed = false
             w.center()
             window = w

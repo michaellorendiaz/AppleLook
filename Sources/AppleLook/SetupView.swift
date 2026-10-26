@@ -96,7 +96,7 @@ struct SetupView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 560)
+        .frame(minWidth: 560, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity)
         .onAppear(perform: loadCalendars)
         .confirmationDialog("Remove every event AppleLook added to this calendar?", isPresented: $confirmRemove) {
             Button("Remove Events", role: .destructive) { removeEvents() }
