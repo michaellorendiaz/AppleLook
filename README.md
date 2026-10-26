@@ -1,3 +1,5 @@
+<p align="center"><img src="Resources/AppIcon.png" width="128" alt="AppleLook icon"></p>
+
 <h1 align="center">AppleLook</h1>
 
 <p align="center">Copy your Outlook work calendar into an iCloud calendar you can share with family.</p>

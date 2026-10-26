@@ -12,7 +12,7 @@ struct SetupView: View {
     @State private var isError = false
     @State private var working = false
     @State private var confirmRemove = false
-    @State private var newCalendarName = "Work (from Outlook)"
+    @State private var newCalendarName = "AppleLook"
 
     var body: some View {
         Form {
