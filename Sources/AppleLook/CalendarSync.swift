@@ -200,7 +200,7 @@ final class CalendarSync {
         ev.title = d.title
         ev.location = d.location.isEmpty ? nil : d.location
         ev.url = URL(string: "\(Self.scheme)://event/\(d.key)")
-        ev.availability = .busy
+        ev.availability = d.isFree ? .free : .busy
         ev.isAllDay = d.isAllDay
         if d.isAllDay {
             let lastDay = Self.utcCal.date(byAdding: .day, value: -1, to: d.end) ?? d.start

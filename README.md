@@ -53,7 +53,7 @@ A settings window opens the first time:
 1. Paste your Outlook link.
 2. Click **Allow Calendar Access**, then **Allow** in the message that appears.
 3. Choose the calendar to copy into, or type a name and click **Create New Calendar**. A separate calendar is best.
-4. Choose what others will see: a label (like "Work"), and whether to show meeting titles and locations.
+4. Choose what others will see: a label (like "Work"), whether to show meeting titles and locations, and whether to include meetings marked Tentative or Free.
 5. Click **Preview** to check, then **Save and Sync**.
 
 Your meetings appear in that calendar within a minute. To share it, open Calendar, right-click the calendar in the sidebar, and choose **Share Calendar**.
@@ -64,7 +64,7 @@ AppleLook now lives in the menu bar (a calendar icon) and starts when you log in
 
 - **Your Mac has to be awake** to sync. Changes made while it's asleep or off show up shortly after it wakes.
 - **Outlook is the source.** If you delete a copied event in iCloud, it comes back on the next sync. Change or decline it in Outlook instead.
-- **Which meetings are copied:** busy, tentative (optional) and out-of-office time from 7 days ago to 90 days ahead. Meetings marked Free and cancelled meetings are skipped.
+- **Which meetings are copied:** busy and out-of-office time from 7 days ago to 90 days ahead, plus, if you turn them on in Settings, meetings marked Tentative or Free. Cancelled meetings are always skipped.
 - **How AppleLook recognizes its own events:** each one has a link starting with `applelook://` in its details. Events without that link are never touched.
 - **The log** is at `~/Library/Logs/AppleLook.log`.
 

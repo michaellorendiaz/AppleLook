@@ -109,6 +109,21 @@ let withTitles: (inout SyncOptions) -> Void = { $0.includeTitles = true; $0.labe
         #expect(raw.values.contains { $0.location.hasPrefix("https://") })
     }
 
+    @Test func freeToggle() {
+        #expect(!titles(desired { withTitles(&$0) }).contains("Lunch hold"))
+        let d = desired { withTitles(&$0); $0.includeFree = true }
+        #expect(d.values.first { $0.title == "Lunch hold" }?.isFree == true)
+        #expect(d.values.first { $0.title == "Budget review" }?.isFree == false)
+        #expect(!titles(d).contains("Cancelled sync"), "cancelled stays out even with Free on")
+    }
+
+    @Test func settingsFromAnOlderVersionKeepTheirValues() throws {
+        let old = #"{"label":"Work","includeTitles":true,"includeTentative":false}"#
+        let o = try JSONDecoder().decode(SyncOptions.self, from: Data(old.utf8))
+        #expect(o.label == "Work" && o.includeTitles && !o.includeTentative)
+        #expect(!o.includeFree && o.windowForwardDays == 90, "missing options get defaults")
+    }
+
     @Test func tentativeToggle() {
         #expect(!titles(desired { withTitles(&$0); $0.includeTentative = false }).contains("Maybe meeting"))
     }

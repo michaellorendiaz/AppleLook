@@ -16,6 +16,17 @@ struct AppSettings: Codable, Equatable {
 
     var isComplete: Bool { !feedURL.isEmpty && !calendarID.isEmpty }
 
+    init() {}
+
+    // Tolerate settings saved by other versions, like SyncOptions does
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = AppSettings()
+        feedURL = try c.decodeIfPresent(String.self, forKey: .feedURL) ?? d.feedURL
+        calendarID = try c.decodeIfPresent(String.self, forKey: .calendarID) ?? d.calendarID
+        options = try c.decodeIfPresent(SyncOptions.self, forKey: .options) ?? d.options
+    }
+
     private static let key = "settings"
 
     static func load() -> AppSettings {

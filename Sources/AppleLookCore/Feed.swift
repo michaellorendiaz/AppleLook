@@ -8,12 +8,31 @@ public struct SyncOptions: Codable, Equatable, Sendable {
     public var includeLocation = false
     public var onlineAsRemote = true
     public var includeTentative = true
+    /// Copy events marked Free too (bridge.py never does). They're shown as free time.
+    public var includeFree = false
     public var skipMultidayAllDay = false
     public var excludeKeywords: [String] = []
     public var windowBackDays = 7
     public var windowForwardDays = 90
 
     public init() {}
+
+    // Options missing from saved settings (added in a later version) keep their defaults,
+    // rather than failing to decode and losing everything the user set
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = SyncOptions()
+        label = try c.decodeIfPresent(String.self, forKey: .label) ?? d.label
+        includeTitles = try c.decodeIfPresent(Bool.self, forKey: .includeTitles) ?? d.includeTitles
+        includeLocation = try c.decodeIfPresent(Bool.self, forKey: .includeLocation) ?? d.includeLocation
+        onlineAsRemote = try c.decodeIfPresent(Bool.self, forKey: .onlineAsRemote) ?? d.onlineAsRemote
+        includeTentative = try c.decodeIfPresent(Bool.self, forKey: .includeTentative) ?? d.includeTentative
+        includeFree = try c.decodeIfPresent(Bool.self, forKey: .includeFree) ?? d.includeFree
+        skipMultidayAllDay = try c.decodeIfPresent(Bool.self, forKey: .skipMultidayAllDay) ?? d.skipMultidayAllDay
+        excludeKeywords = try c.decodeIfPresent([String].self, forKey: .excludeKeywords) ?? d.excludeKeywords
+        windowBackDays = try c.decodeIfPresent(Int.self, forKey: .windowBackDays) ?? d.windowBackDays
+        windowForwardDays = try c.decodeIfPresent(Int.self, forKey: .windowForwardDays) ?? d.windowForwardDays
+    }
 }
 
 /// One event as it should exist in the target calendar.
@@ -26,14 +45,17 @@ public struct DesiredEvent: Equatable, Sendable {
     public let isAllDay: Bool
     public let title: String
     public let location: String
+    /// Marked Free in Outlook (only copied when includeFree is on).
+    public let isFree: Bool
 
-    public init(key: String, start: Date, end: Date, isAllDay: Bool, title: String, location: String) {
+    public init(key: String, start: Date, end: Date, isAllDay: Bool, title: String, location: String, isFree: Bool = false) {
         self.key = key
         self.start = start
         self.end = end
         self.isAllDay = isAllDay
         self.title = title
         self.location = location
+        self.isFree = isFree
     }
 }
 
@@ -108,7 +130,7 @@ public enum Feed {
             let overlaps = occ.end > occ.start
                 ? occ.end > windowStart && occ.start < windowEnd
                 : occ.start >= windowStart && occ.start < windowEnd
-            guard overlaps, isBusy(occ.event, options) else { continue }
+            guard overlaps, shouldCopy(occ.event, options) else { continue }
             if options.skipMultidayAllDay && occ.allDay && occ.end.timeIntervalSince(occ.start) > 86400 { continue }
             let title = occ.event.text("SUMMARY").trimmingCharacters(in: .whitespacesAndNewlines)
             if isExcluded(title, options) { continue }
@@ -116,7 +138,8 @@ public enum Feed {
             desired[key] = DesiredEvent(
                 key: key, start: occ.start, end: occ.end, isAllDay: occ.allDay,
                 title: summary(title: title, options: options),
-                location: cleanLocation(occ.event.text("LOCATION"), options))
+                location: cleanLocation(occ.event.text("LOCATION"), options),
+                isFree: isFree(occ.event))
         }
         for zone in parser.unknownZones.sorted() {
             warnings.append("Unknown time zone \"\(zone)\"; using this Mac's time zone for it.")
@@ -124,17 +147,25 @@ public enum Feed {
         return FeedResult(events: desired, feedEventCount: vevents.count, warnings: warnings)
     }
 
-    static func isBusy(_ ev: ICSComponent, _ o: SyncOptions) -> Bool {
+    /// Busy, out-of-office and (optionally) tentative events; Free ones only when asked.
+    /// Cancelled events never.
+    static func shouldCopy(_ ev: ICSComponent, _ o: SyncOptions) -> Bool {
         let status = ev.text("STATUS").uppercased()
         if status == "CANCELLED" { return false }
         let cdo = ev.text("X-MICROSOFT-CDO-BUSYSTATUS").uppercased()
         if !cdo.isEmpty {
             if cdo == "TENTATIVE" && !o.includeTentative { return false }
+            if cdo == "FREE" { return o.includeFree }
             return busyStatuses.contains(cdo)
         }
         if status == "TENTATIVE" && !o.includeTentative { return false }
-        let transp = ev.first("TRANSP")?.value.uppercased() ?? "OPAQUE"
-        return transp == "OPAQUE"
+        return !isFree(ev) || o.includeFree
+    }
+
+    static func isFree(_ ev: ICSComponent) -> Bool {
+        let cdo = ev.text("X-MICROSOFT-CDO-BUSYSTATUS").uppercased()
+        if !cdo.isEmpty { return cdo == "FREE" }
+        return (ev.first("TRANSP")?.value.uppercased() ?? "OPAQUE") == "TRANSPARENT"
     }
 
     static func isExcluded(_ title: String, _ o: SyncOptions) -> Bool {

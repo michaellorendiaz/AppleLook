@@ -68,6 +68,7 @@ struct SetupView: View {
                 Toggle("Show meeting titles", isOn: $draft.options.includeTitles)
                 Toggle("Show locations (online meetings show as \"Remote\")", isOn: $draft.options.includeLocation)
                 Toggle("Include meetings marked Tentative", isOn: $draft.options.includeTentative)
+                Toggle("Include meetings marked Free", isOn: $draft.options.includeFree)
                 Toggle("Skip multi-day all-day events (room bookings, trips)", isOn: $draft.options.skipMultidayAllDay)
                 LabeledContent("Example", value: Feed.summary(title: "Budget review", options: draft.options))
             }
