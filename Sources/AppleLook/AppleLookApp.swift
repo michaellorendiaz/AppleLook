@@ -59,7 +59,10 @@ enum SetupWindow {
             w.center()
             window = w
         }
-        NSApp.activate()
+        // A menu-bar app isn't frontmost, and macOS 14+ may decline a polite activate(),
+        // which leaves the window hidden behind other apps
+        NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+        window?.orderFrontRegardless()
     }
 }

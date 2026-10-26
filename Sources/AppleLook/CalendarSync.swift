@@ -52,7 +52,14 @@ final class CalendarSync {
     }
 
     func requestAccess() async -> Bool {
-        (try? await store.requestFullAccessToEvents()) ?? false
+        do {
+            let granted = try await store.requestFullAccessToEvents()
+            Log.info("calendar access \(granted ? "granted" : "not granted")")
+            return granted
+        } catch {
+            Log.error("calendar access request failed: \(error.localizedDescription)")
+            return false
+        }
     }
 
     /// Calendars AppleLook can write to, iCloud ones first.

@@ -17,7 +17,7 @@ lipo -create -output "$APP/Contents/MacOS/AppleLook" \
 cp Resources/Info.plist "$APP/Contents/"
 plutil -lint "$APP/Contents/Info.plist" >/dev/null
 xattr -cr "$APP"  # codesign rejects extended attributes
-codesign --force --options runtime --sign - "$APP"
+codesign --force --options runtime --entitlements Resources/AppleLook.entitlements --sign - "$APP"
 
 # ditto keeps the bundle intact; Finder unzips it with a double-click
 ditto -c -k --keepParent "$APP" build/AppleLook.zip

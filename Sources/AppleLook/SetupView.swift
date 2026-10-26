@@ -48,7 +48,11 @@ struct SetupView: View {
                     Button("Allow Calendar Access") {
                         Task {
                             hasAccess = await model.sync.requestAccess()
-                            loadCalendars()
+                            if hasAccess {
+                                loadCalendars()
+                            } else {
+                                show("Calendar access wasn't allowed. Turn on AppleLook in System Settings → Privacy & Security → Calendars.", error: true)
+                            }
                         }
                     }
                 }
