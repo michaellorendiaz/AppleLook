@@ -1,6 +1,19 @@
-# AppleLook
+<h1 align="center">AppleLook</h1>
 
-Copy your Outlook work calendar into an iCloud calendar you can share with family.
+<p align="center">Copy your Outlook work calendar into an iCloud calendar you can share with family.</p>
+
+<p align="center">
+  <a href="https://github.com/michaellorendiaz/AppleLook/releases/latest/download/AppleLook.zip"><img src="https://img.shields.io/badge/Download%20AppleLook-for%20Mac-2EA043?style=for-the-badge&logo=apple&logoColor=white" alt="Download AppleLook for Mac"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/michaellorendiaz/AppleLook/releases/latest"><img src="https://img.shields.io/github/v/release/michaellorendiaz/AppleLook?label=version" alt="Latest version"></a>
+  <img src="https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white" alt="macOS 14 or later">
+  <img src="https://img.shields.io/badge/Apple%20Silicon%20%2B%20Intel-universal-555555" alt="Apple Silicon and Intel">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+</p>
+
+> **Never used GitHub?** Click the green **Download AppleLook** button above, then follow [Install AppleLook](#2-install-applelook) below. You don't need a GitHub account.
 
 AppleLook is a small Mac menu-bar app. You paste the link Outlook gives you for your calendar, pick an iCloud calendar, and it keeps that calendar up to date every 15 minutes. Share the iCloud calendar with your family in the Calendar app, and they see when you're in meetings. You choose whether they see the meeting names or just "Busy".
 
@@ -24,7 +37,7 @@ Why not just subscribe to the Outlook link in Calendar? A subscribed calendar ca
 
 ## 2. Install AppleLook
 
-1. Download **AppleLook.zip** and double-click it to unzip.
+1. Click the green **Download AppleLook** button at the top of this page. Open **AppleLook.zip** from your Downloads folder to unzip it.
 2. Drag **AppleLook** into your **Applications** folder, then double-click it.
 3. The first time, macOS says it can't verify the app. That's because AppleLook isn't registered with Apple yet. Click **Done**, then:
    - Open **System Settings → Privacy & Security**.
@@ -54,6 +67,21 @@ AppleLook now lives in the menu bar (a calendar icon) and starts when you log in
 - **Which meetings are copied:** busy, tentative (optional) and out-of-office time from 7 days ago to 90 days ahead. Meetings marked Free and cancelled meetings are skipped.
 - **How AppleLook recognizes its own events:** each one has a link starting with `applelook://` in its details. Events without that link are never touched.
 - **The log** is at `~/Library/Logs/AppleLook.log`.
+
+## Updating
+
+AppleLook checks for new versions once a day. When one is out, **Update Available** appears at the top of its menu. You can also click the menu-bar icon → **Check for Updates…** at any time.
+
+To update:
+
+1. Click **Download** in the update message (or the green button above).
+2. Click the menu-bar icon → **Quit AppleLook**.
+3. Open the downloaded **AppleLook.zip** and drag the new **AppleLook** into **Applications**, choosing **Replace**.
+4. Open AppleLook. As on the first install, macOS asks you to confirm it in **System Settings → Privacy & Security → Open Anyway**.
+
+Your settings (Outlook link, calendar and options) are kept.
+
+On GitHub, you can also click **Watch → Custom → Releases** at the top of this page to get an email for each new version.
 
 ## Removing AppleLook
 
@@ -85,6 +113,8 @@ AppleLook is a Swift package with three parts:
 scripts/test.sh        # unit tests (works with just the Command Line Tools)
 scripts/build-app.sh   # build/AppleLook.app and build/AppleLook.zip (Apple Silicon + Intel)
 ```
+
+Builds are signed with a self-signed certificate (`scripts/make-signing-cert.sh` creates it once) so that macOS keeps users' Calendar permission across updates. To publish a release, bump `CFBundleShortVersionString` in `Resources/Info.plist`, build, and attach `build/AppleLook.zip` to a GitHub Release tagged `v<version>`. The download button and the in-app update check both follow the latest release.
 
 AppleLook grew out of [outlook-icloud-bridge](https://github.com/michaellorendiaz/outlook-icloud-bridge), a Python script that does the same job from the command line. The feed logic matches it event for event.
 

@@ -12,7 +12,7 @@ struct SetupView: View {
     @State private var isError = false
     @State private var working = false
     @State private var confirmRemove = false
-    @State private var newCalendarName = "Work"
+    @State private var newCalendarName = "Work (from Outlook)"
 
     var body: some View {
         Form {
@@ -34,7 +34,7 @@ struct SetupView: View {
                         }
                     }
                     HStack {
-                        TextField("New calendar", text: $newCalendarName).labelsHidden().frame(maxWidth: 180)
+                        TextField("New calendar", text: $newCalendarName).labelsHidden().frame(maxWidth: 200)
                         Button("Create New Calendar") { createCalendar() }
                             .disabled(newCalendarName.trimmingCharacters(in: .whitespaces).isEmpty)
                     }

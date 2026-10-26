@@ -35,6 +35,7 @@ final class AppModel: ObservableObject {
     static let interval: TimeInterval = 15 * 60
 
     let sync = CalendarSync()
+    let updates = Updates()
     @Published var settings = AppSettings.load()
     @Published private(set) var lastSync: Date?
     @Published private(set) var lastResult: SyncResult?
@@ -54,8 +55,12 @@ final class AppModel: ObservableObject {
     func start() {
         Log.info("AppleLook \(Bundle.main.shortVersion) started")
         timer = Timer.scheduledTimer(withTimeInterval: Self.interval, repeats: true) { _ in
-            Task { @MainActor in await AppModel.shared.syncNow() }
+            Task { @MainActor in
+                await AppModel.shared.syncNow()
+                AppModel.shared.updates.checkDaily()
+            }
         }
+        updates.checkDaily()
         // Timers don't fire during sleep; sync shortly after waking instead of waiting
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
@@ -67,7 +72,17 @@ final class AppModel: ObservableObject {
             }
         }
         if settings.isComplete {
-            Task { await syncNow() }
+            Task {
+                // macOS forgets the permission when the app's signature changes (an update
+                // built without the stable certificate): ask again instead of just failing
+                if sync.notAskedYet { _ = await sync.requestAccess() }
+                if sync.hasAccess {
+                    await syncNow()
+                } else {
+                    lastError = SyncError.noAccess.localizedDescription
+                    SetupWindow.show()
+                }
+            }
         } else {
             SetupWindow.show()
         }

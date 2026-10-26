@@ -46,6 +46,7 @@ final class CalendarSync {
     static let scheme = "applelook"
 
     var hasAccess: Bool { EKEventStore.authorizationStatus(for: .event) == .fullAccess }
+    var notAskedYet: Bool { EKEventStore.authorizationStatus(for: .event) == .notDetermined }
     var accessDenied: Bool {
         let s = EKEventStore.authorizationStatus(for: .event)
         return s == .denied || s == .restricted

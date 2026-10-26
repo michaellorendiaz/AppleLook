@@ -8,7 +8,7 @@ struct AppleLookApp: App {
 
     var body: some Scene {
         MenuBarExtra("AppleLook", systemImage: model.lastError == nil ? "calendar.badge.clock" : "calendar.badge.exclamationmark") {
-            MenuContent(model: model)
+            MenuContent(model: model, updates: model.updates)
         }
     }
 }
@@ -21,8 +21,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 struct MenuContent: View {
     @ObservedObject var model: AppModel
+    @ObservedObject var updates: Updates
 
     var body: some View {
+        if let release = updates.available {
+            Button("Update Available: AppleLook \(release.version)…") { Task { await updates.checkInteractively() } }
+            Divider()
+        }
         Text(model.statusLine)
         if let error = model.lastError {
             Text(error)
@@ -32,6 +37,7 @@ struct MenuContent: View {
             .disabled(!model.settings.isComplete || model.isSyncing)
         Button("Settings…") { SetupWindow.show() }
             .keyboardShortcut(",")
+        Button("Check for Updates…") { Task { await updates.checkInteractively() } }
         Divider()
         Button("Quit AppleLook") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
