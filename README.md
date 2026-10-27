@@ -21,6 +21,8 @@
 
 AppleLook copies your Outlook work calendar into an iCloud calendar you can share with your family. Outlook can publish your calendar as a link, and Apple Calendar can subscribe to it, but a subscribed calendar can't be shared through iCloud. A regular iCloud calendar can, and AppleLook keeps one up to date every 15 minutes. You choose what your family sees: meeting titles, "Busy", or a label of your own.
 
+It works from Outlook's published calendar link alone, so it never signs in to your Microsoft account. Paid sync services do sign in, and many workplaces and universities block them unless IT approves.
+
 It comes in two versions. Use one or the other for a calendar, not both.
 
 | | Mac version (menu-bar app) | Linux server (AppleLook Server) |
