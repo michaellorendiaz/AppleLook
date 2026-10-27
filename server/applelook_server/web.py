@@ -192,6 +192,11 @@ def create_app():
     @app.get("/")
     def index():
         cfg = store.load_settings()
+        preview = _previews.pop(session.pop("preview", ""), None)
+        saved_complete = store.is_complete(cfg)
+        # show the settings that were previewed, not the saved ones, so Save and Sync
+        # after a Preview saves exactly what was previewed
+        form_cfg = preview["cfg"] if preview else cfg
         password = store.icloud_password()
         calendars, calendar_error = [], None
         if cfg["apple_id"] and password:
@@ -207,15 +212,18 @@ def create_app():
                 except Exception:
                     log.exception("listing calendars")
                     calendar_error = "Couldn't reach iCloud to list your calendars."
-        if cfg["target_calendar"] and cfg["target_calendar"] not in calendars:
-            calendars = calendars + [cfg["target_calendar"]]
+        for name in (cfg["target_calendar"], form_cfg["target_calendar"]):
+            if name and name not in calendars:
+                calendars = calendars + [name]
         return render_template(
-            "index.html", cfg=cfg, has_password=bool(password), password_from_env=store.password_from_env(),
-            calendars=calendars, calendar_error=calendar_error, complete=store.is_complete(cfg),
-            status=status, preview=_previews.pop(session.pop("preview", ""), None),
-            example=engine.event_summary("Budget review", cfg),
-            # unchecked until a calendar has been saved, so new installs get unique IDs
-            takeover=bool(cfg["target_calendar"]) and cfg["uid_salt"] == "")
+            "index.html", cfg=form_cfg, has_password=bool(password), password_from_env=store.password_from_env(),
+            calendars=calendars, calendar_error=calendar_error, complete=saved_complete,
+            status=status, preview=preview, saved_calendar=cfg["target_calendar"],
+            example=engine.event_summary("Budget review", form_cfg),
+            # unchecked until a calendar has been saved, so new installs get unique IDs;
+            # after a Preview, whatever was ticked for it
+            takeover=preview["takeover"] if preview else
+                     bool(cfg["target_calendar"]) and cfg["uid_salt"] == "")
 
     @app.post("/save")
     def save():
@@ -282,7 +290,8 @@ def create_app():
             _previews.clear()
             _previews[token] = {"summary": f"{r['desired']} events from Outlook. A sync would add "
                                            f"{r['created']}, change {r['updated']} and remove {r['deleted']}.",
-                                "changes": r["changes"]}
+                                "changes": r["changes"],
+                                "cfg": cfg, "takeover": "takeover" in request.form}
             session["preview"] = token
         except engine.SyncError as exc:
             flash(str(exc), "error")

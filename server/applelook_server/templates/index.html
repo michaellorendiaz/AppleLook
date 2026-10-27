@@ -11,7 +11,7 @@
       <div class="muted">{{ status.last_error }}</div>
     {% elif status.last_result %}
       <div class="big">Synced at {{ status.last_run.strftime("%-I:%M %p") }} · {{ status.last_result.desired }} events</div>
-      <div class="muted">Into “{{ cfg.target_calendar }}”{% if status.next_run %} · next sync {{ status.next_run.strftime("%-I:%M %p") }}{% endif %}</div>
+      <div class="muted">Into “{{ saved_calendar }}”{% if status.next_run %} · next sync {{ status.next_run.strftime("%-I:%M %p") }}{% endif %}</div>
     {% else %}
       <div class="big">Waiting for the first sync</div>
       <div class="muted">Syncs every 15 minutes.</div>
@@ -120,9 +120,9 @@
 
 {% if complete %}
 <div class="card">
-  <form method="post" action="remove" onsubmit="return confirm('Remove every event AppleLook added to “{{ cfg.target_calendar }}”? Your own events are not touched.')">
+  <form method="post" action="remove" onsubmit="return confirm('Remove every event AppleLook added to “{{ saved_calendar }}”? Your own events are not touched.')">
     <input type="hidden" name="csrf" value="{{ csrf }}">
-    <div class="row"><span class="muted" style="flex:1">Remove every event AppleLook added to “{{ cfg.target_calendar }}”.</span>
+    <div class="row"><span class="muted" style="flex:1">Remove every event AppleLook added to “{{ saved_calendar }}”.</span>
       <button class="danger">Remove Events…</button></div>
   </form>
 </div>

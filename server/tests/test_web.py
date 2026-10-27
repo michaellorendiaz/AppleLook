@@ -101,6 +101,24 @@ class SettingsTests(unittest.TestCase):
         self.save(target_calendar="Family")
         self.assertEqual(json.loads((self.store.DATA / "settings.json").read_text())["uid_salt"], "Family")
 
+    def test_preview_keeps_the_previewed_settings_on_the_page(self):
+        # after Preview the form must show what was previewed, so Save and Sync saves that
+        from unittest import mock
+        from applelook_server import web
+        result = {"desired": 1, "created": 0, "updated": 0, "deleted": 0, "changes": []}
+        with mock.patch.object(web.engine, "sync", return_value=result):
+            page = self.c.post("/preview", follow_redirects=True, data={
+                "csrf": csrf_of(self.c), "feed_url": "https://x.example/calendar.ics",
+                "apple_id": "me@example.com", "icloud_password": "abcd-efgh-ijkl-mnop",
+                "target_calendar": "Family", "label": "Work", "include_titles": "on",
+                "skip_multiday_allday": "on", "takeover": "on"}).get_data(as_text=True)
+        self.assertIn("A sync would add 0", page)
+        self.assertRegex(page, r'name="include_titles" checked')
+        self.assertRegex(page, r'name="skip_multiday_allday" checked')
+        self.assertRegex(page, r'name="takeover" checked')
+        self.assertRegex(page, r'value="Family" selected')
+        self.assertFalse((self.store.DATA / "settings.json").exists(), "Preview saves nothing")
+
     def test_password_saved_privately_and_never_shown(self):
         # no follow-up page load: with an Apple ID and password saved it would contact iCloud
         page = self.c.post("/save", data={"csrf": csrf_of(self.c), "apple_id": "me@example.com",
