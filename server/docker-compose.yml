@@ -1,0 +1,18 @@
+# AppleLook Server. Set the password below, then: docker compose up -d
+# Open http://<this-machine>:8080 from your home network. Don't forward this port
+# from your router: the page holds your calendar link and iCloud password.
+services:
+  applelook:
+    build: .
+    container_name: applelook
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      APPLELOOK_PASSWORD: "change-me"     # login password for the settings page
+      TZ: "America/New_York"              # your time zone, for times shown on the page
+    volumes:
+      - applelook-data:/data              # settings, iCloud password, login key
+
+volumes:
+  applelook-data:

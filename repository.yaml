@@ -1,0 +1,5 @@
+# Home Assistant add-on repository. Add https://github.com/michaellorendiaz/AppleLook
+# in Settings > Add-ons > Add-on Store > ⋮ > Repositories.
+name: AppleLook
+url: https://github.com/michaellorendiaz/AppleLook
+maintainer: Michael Diaz

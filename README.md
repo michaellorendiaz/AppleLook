@@ -19,6 +19,8 @@
 
 AppleLook is a small Mac menu-bar app that copies Outlook calendar events into an iCloud calendar. Why not just subscribe to the Outlook link in Calendar, you ask? Well, a subscribed calendar can't be shared through iCloud Family Sharing. A real iCloud calendar can, which is exactly what this app makes. Paste the Outlook calendar sharing link for your calendar, pick an iCloud calendar, and AppleLook keeps that calendar up to date every 15 minutes. Share the iCloud calendar with your family in the Calendar app, and they see when you're in meetings. You can choose whether they see the meeting names, "Busy", or a custom label.
 
+> **Have an always-on Linux machine or Home Assistant?** [AppleLook Server](server/) does the same job from a Docker container with a web settings page, and keeps syncing while your Mac sleeps.
+
 > **Early preview.** This works on the developer's Mac but hasn't been widely tested yet. It only ever changes events it added itself, so it can't damage your own calendar.
 
 ## What you need

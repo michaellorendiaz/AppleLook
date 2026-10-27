@@ -1,5 +1,8 @@
+__pycache__/
 .build/
-build/
-.swiftpm/
-*.ics
 .DS_Store
+.swiftpm/
+*.egg-info/
+*.ics
+*.pyc
+build/

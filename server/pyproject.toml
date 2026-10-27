@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "applelook-server"
+version = "0.1.0"
+description = "Copy an Outlook calendar into an iCloud calendar, with a web settings page."
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "caldav==3.2.1",
+    "icalendar==7.2.0",
+    "recurring-ical-events==3.8.2",
+    "requests==2.34.2",
+    "flask==3.1.3",
+    "waitress==3.0.2",
+]
+
+[project.scripts]
+applelook-server = "applelook_server.web:main"
+
+[tool.setuptools.package-data]
+applelook_server = ["templates/*.html", "static/*"]

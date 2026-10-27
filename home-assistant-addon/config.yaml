@@ -1,0 +1,16 @@
+name: AppleLook
+version: "0.1.0"
+slug: applelook
+description: Copy your Outlook calendar into an iCloud calendar you can share with family.
+url: https://github.com/michaellorendiaz/AppleLook/tree/main/server
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: auto
+# Opened from the Home Assistant sidebar, behind Home Assistant's login. No ports exposed.
+ingress: true
+ingress_port: 8080
+panel_icon: mdi:calendar-sync
+panel_title: AppleLook

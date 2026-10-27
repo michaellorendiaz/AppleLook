@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="card">
+  {% if missing %}
+    <h2>No login password set</h2>
+    <p>Start the container with <code>APPLELOOK_PASSWORD</code> set to the password you want for this page.</p>
+  {% else %}
+    <h2>Log in</h2>
+    <form method="post" action="login">
+      <label class="field" for="password">Password</label>
+      <input type="password" id="password" name="password" autofocus autocomplete="current-password">
+      <div class="actions"><button class="primary">Log In</button></div>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

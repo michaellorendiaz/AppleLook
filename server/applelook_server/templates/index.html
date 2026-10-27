@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block body %}
+
+<div class="card status">
+  <div>
+    {% if not complete %}
+      <div class="big">Not set up yet</div>
+      <div class="muted">Fill in the settings below, then Save and Sync.</div>
+    {% elif status.last_error %}
+      <div class="big">Last sync failed at {{ status.last_run.strftime("%-I:%M %p") }}</div>
+      <div class="muted">{{ status.last_error }}</div>
+    {% elif status.last_result %}
+      <div class="big">Synced at {{ status.last_run.strftime("%-I:%M %p") }} · {{ status.last_result.desired }} events</div>
+      <div class="muted">Into “{{ cfg.target_calendar }}”{% if status.next_run %} · next sync {{ status.next_run.strftime("%-I:%M %p") }}{% endif %}</div>
+    {% else %}
+      <div class="big">Waiting for the first sync</div>
+      <div class="muted">Syncs every 15 minutes.</div>
+    {% endif %}
+  </div>
+  <form method="post" action="sync"><input type="hidden" name="csrf" value="{{ csrf }}">
+    <button {% if not complete %}disabled{% endif %}>Sync Now</button></form>
+</div>
+
+{% if preview %}
+<div class="card">
+  <h2>Preview</h2>
+  <div>{{ preview.summary }}</div>
+  {% if preview.changes %}<ul class="plain">{% for c in preview.changes %}<li>{{ c }}</li>{% endfor %}</ul>{% endif %}
+</div>
+{% endif %}
+
+<form method="post" action="save" id="settings">
+<input type="hidden" name="csrf" value="{{ csrf }}">
+
+<div class="card">
+  <h2>1. Your Outlook calendar link</h2>
+  <input type="url" name="feed_url" value="{{ cfg.feed_url }}" placeholder="https://outlook.office365.com/owa/calendar/…/calendar.ics" autocomplete="off">
+  <p class="hint">In Outlook on the web: Settings → Calendar → Shared calendars → Publish a calendar. Choose your calendar and “Can view all details”, click Publish, then copy the ICS link.</p>
+</div>
+
+<div class="card">
+  <h2>2. Your iCloud account</h2>
+  <label class="field" for="apple_id">Apple ID email</label>
+  <input type="email" id="apple_id" name="apple_id" value="{{ cfg.apple_id }}" autocomplete="off">
+  <label class="field" for="icloud_password">App-specific password</label>
+  {% if password_from_env %}
+    <p class="hint">Set by the server (ICLOUD_APP_PASSWORD).</p>
+  {% else %}
+    <input type="password" id="icloud_password" name="icloud_password" autocomplete="new-password"
+           placeholder="{{ 'Saved. Type a new one to replace it.' if has_password else 'xxxx-xxxx-xxxx-xxxx' }}">
+    <p class="hint">Make one at <a href="https://account.apple.com" target="_blank" rel="noopener">account.apple.com</a> → Sign-In and Security → App-Specific Passwords. It lets this server add events to your iCloud calendars, and you can revoke it there any time.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>3. The calendar to copy into</h2>
+  {% if calendar_error %}<p class="flash error">{{ calendar_error }}</p>{% endif %}
+  {% if calendars %}
+    <select name="target_calendar">
+      <option value="">Choose a calendar…</option>
+      {% for name in calendars %}
+        <option value="{{ name }}" {% if name == cfg.target_calendar %}selected{% endif %}>{{ name }}</option>
+      {% endfor %}
+    </select>
+  {% else %}
+    <input type="hidden" name="target_calendar" value="{{ cfg.target_calendar }}">
+    <p class="hint">Save your Apple ID and app-specific password first; your calendars then appear here.</p>
+  {% endif %}
+  <p class="hint">Use a separate calendar, then share it with family in the Calendar app. AppleLook only changes events it added itself.</p>
+</div>
+
+<div class="card">
+  <h2>4. What others will see</h2>
+  <label class="field" for="label">Label</label>
+  <input type="text" id="label" name="label" value="{{ cfg.label }}">
+  <label class="check"><input type="checkbox" name="include_titles" {% if cfg.include_titles %}checked{% endif %}> Show meeting titles</label>
+  <label class="check"><input type="checkbox" name="include_location" {% if cfg.include_location %}checked{% endif %}> Show locations (online meetings show as “Remote”)</label>
+  <label class="check"><input type="checkbox" name="include_tentative" {% if cfg.include_tentative %}checked{% endif %}> Include meetings marked Tentative</label>
+  <label class="check"><input type="checkbox" name="include_free" {% if cfg.include_free %}checked{% endif %}> Include meetings marked Free</label>
+  <label class="check"><input type="checkbox" name="skip_multiday_allday" {% if cfg.skip_multiday_allday %}checked{% endif %}> Skip multi-day all-day events (room bookings, trips)</label>
+  <p class="hint">Example: <strong id="example">{{ example }}</strong></p>
+</div>
+
+<div class="card">
+  <details>
+    <summary>Advanced</summary>
+    <label class="field" for="exclude_keywords">Skip meetings whose title contains</label>
+    <input type="text" id="exclude_keywords" name="exclude_keywords" value="{{ cfg.exclude_keywords | join(', ') }}" placeholder="Focus time, Lunch">
+    <p class="hint">Separate words with commas. Not case-sensitive.</p>
+    <label class="check"><input type="checkbox" name="takeover" {% if takeover %}checked{% endif %}>
+      <span>Take over events from outlook-busy-bridge<br><span class="hint">Only when this replaces that older script in the same calendar: AppleLook then manages the events it already made instead of adding copies. Leave off otherwise.</span></span></label>
+  </details>
+</div>
+
+<div class="actions">
+  <button formaction="preview">Preview</button>
+  <button class="primary">Save and Sync</button>
+</div>
+</form>
+
+{% if cfg.apple_id and has_password %}
+<div class="card" style="margin-top:16px">
+  <h2>Create a new iCloud calendar</h2>
+  <form method="post" action="create-calendar" class="row">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="text" name="name" value="AppleLook" required>
+    <button>Create</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="card">
+  <details>
+    <summary>Recent activity</summary>
+    {% if status.activity %}
+      <ul class="plain">{% for when, message in status.activity|reverse %}<li><span class="muted">{{ when.strftime("%b %-d, %-I:%M %p") }}</span> {{ message }}</li>{% endfor %}</ul>
+    {% else %}<p class="hint">Nothing yet.</p>{% endif %}
+  </details>
+</div>
+
+{% if complete %}
+<div class="card">
+  <form method="post" action="remove" onsubmit="return confirm('Remove every event AppleLook added to “{{ cfg.target_calendar }}”? Your own events are not touched.')">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <div class="row"><span class="muted" style="flex:1">Remove every event AppleLook added to “{{ cfg.target_calendar }}”.</span>
+      <button class="danger">Remove Events…</button></div>
+  </form>
+</div>
+{% endif %}
+
+<script>
+  // Live example of what others will see, mirroring engine.event_summary
+  const form = document.getElementById("settings");
+  function example() {
+    const label = form.label.value.trim();
+    const title = form.include_titles.checked ? "Budget review" : "";
+    document.getElementById("example").textContent =
+      label && title ? `${label} (${title})` : (label || title || "Busy");
+  }
+  form.addEventListener("input", example);
+</script>
+{% endblock %}
