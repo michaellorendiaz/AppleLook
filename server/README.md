@@ -23,9 +23,17 @@ It runs two ways:
 ```bash
 git clone https://github.com/michaellorendiaz/AppleLook.git
 cd AppleLook/server
-# edit docker-compose.yml: set APPLELOOK_PASSWORD and TZ
-docker compose up -d
+cat > docker-compose.override.yml <<'EOF'
+services:
+  applelook:
+    environment:
+      APPLELOOK_PASSWORD: "a-long-password-you-choose"
+      TZ: "America/New_York"
+EOF
+docker compose up -d --build
 ```
+
+Keeping your settings in `docker-compose.override.yml` means `git pull` never conflicts with them. If port 8080 is taken, add `ports: !override ["8090:8080"]` under `applelook:` in that file (Docker Compose 2.24 or later).
 
 Open `http://<this-machine>:8080`, log in with `APPLELOOK_PASSWORD`, and fill in the settings. To update later: `git pull && docker compose up -d --build`. Settings are kept in the `applelook-data` volume.
 

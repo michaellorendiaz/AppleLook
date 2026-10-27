@@ -6,29 +6,36 @@
 
 <p align="center">
   <a href="https://github.com/michaellorendiaz/AppleLook/releases/latest/download/AppleLook.zip"><img src="https://img.shields.io/badge/Download%20AppleLook-for%20Mac-2EA043?style=for-the-badge&logo=apple&logoColor=white" alt="Download AppleLook for Mac"></a>
+  <a href="#linux-server-applelook-server"><img src="https://img.shields.io/badge/Install%20AppleLook%20Server-for%20Linux-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Install AppleLook Server for Linux"></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/michaellorendiaz/AppleLook/releases/latest"><img src="https://img.shields.io/github/v/release/michaellorendiaz/AppleLook?label=version" alt="Latest version"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-000000?logo=apple&logoColor=white" alt="macOS 14 or later">
   <img src="https://img.shields.io/badge/Apple%20Silicon%20%2B%20Intel-universal-555555" alt="Apple Silicon and Intel">
+  <img src="https://img.shields.io/badge/Linux-Docker-2496ED?logo=docker&logoColor=white" alt="Linux with Docker">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
 </p>
 
-> **Never used GitHub?** Click the green **Download AppleLook** button above, then follow [Install AppleLook](#2-install-applelook) below. You don't need a GitHub account.
+> **Never used GitHub?** On a Mac, click the green **Download AppleLook** button above, then follow [Install the Mac app](#install-the-mac-app). You don't need a GitHub account.
 
-AppleLook is a small Mac menu-bar app that copies Outlook calendar events into an iCloud calendar. Why not just subscribe to the Outlook link in Calendar, you ask? Well, a subscribed calendar can't be shared through iCloud Family Sharing. A real iCloud calendar can, which is exactly what this app makes. Paste the Outlook calendar sharing link for your calendar, pick an iCloud calendar, and AppleLook keeps that calendar up to date every 15 minutes. Share the iCloud calendar with your family in the Calendar app, and they see when you're in meetings. You can choose whether they see the meeting names, "Busy", or a custom label.
+AppleLook copies your Outlook work calendar into an iCloud calendar you can share with your family. Outlook can publish your calendar as a link, and Apple Calendar can subscribe to it, but a subscribed calendar can't be shared through iCloud. A regular iCloud calendar can, and AppleLook keeps one up to date every 15 minutes. You choose what your family sees: meeting titles, "Busy", or a label of your own.
 
-> **Have an always-on Linux machine or Home Assistant?** [AppleLook Server](server/) does the same job from a Docker container with a web settings page, and keeps syncing while your Mac sleeps.
+It comes in two versions. Use one or the other for a calendar, not both.
 
-> **Early preview.** This works on the developer's Mac but hasn't been widely tested yet. It only ever changes events it added itself, so it can't damage your own calendar.
+| | Mac version (menu-bar app) | Linux server (AppleLook Server) |
+|---|---|---|
+| Runs on | A Mac with macOS 14 or later | Any always-on Linux machine with Docker, or Home Assistant |
+| Syncs | Every 15 minutes while your Mac is awake | Every 15 minutes, around the clock |
+| Set up in | A settings window | A web page on your home network |
+| iCloud sign-in | Uses your Mac's iCloud account | Needs an Apple app-specific password |
+| Install | [Mac version](#mac-version-menu-bar-app) | [Linux server](#linux-server-applelook-server) |
 
-## What you need
+> **Early preview.** Both versions only ever change events they added themselves, so they can't damage your own calendar events.
 
-- A Mac running macOS 14 (Sonoma) or later, signed in to iCloud with **Calendars** turned on (System Settings → your name → iCloud → Calendars).
-- An Outlook / Microsoft 365 work calendar you can open in a web browser.
+## Get your Outlook calendar link
 
-## 1. Get your Outlook calendar link
+Both versions start from this link.
 
 1. Open [Outlook on the web](https://outlook.office.com/calendar) and sign in.
 2. Click the gear (Settings) → **Calendar** → **Shared calendars**.
@@ -37,7 +44,14 @@ AppleLook is a small Mac menu-bar app that copies Outlook calendar events into a
 
 > Treat this link like a password: anyone who has it can see your calendar. If it ever leaks, click **Reset links** on the same screen and paste the new link into AppleLook.
 
-## 2. Install AppleLook
+## Mac version (menu-bar app)
+
+### What you need
+
+- A Mac running macOS 14 (Sonoma) or later, signed in to iCloud with **Calendars** turned on (System Settings → your name → iCloud → Calendars).
+- Your [Outlook calendar link](#get-your-outlook-calendar-link).
+
+### Install the Mac app
 
 1. Click the green **Download AppleLook** button at the top of this page. Open **AppleLook.zip** from your Downloads folder to unzip it.
 2. Drag **AppleLook** into your **Applications** folder, then double-click it.
@@ -48,7 +62,7 @@ AppleLook is a small Mac menu-bar app that copies Outlook calendar events into a
 
 You only do this once.
 
-## 3. Set it up
+### Set it up
 
 A settings window opens the first time:
 
@@ -62,7 +76,7 @@ Your meetings appear in that calendar within a minute. To share it, open Calenda
 
 AppleLook now lives in the menu bar (a calendar icon) and starts when you log in. Click the icon to sync right away or change settings.
 
-## Good to know
+### Good to know
 
 - **Your Mac has to be awake** to sync. Changes made while it's asleep or off show up shortly after it wakes.
 - **Outlook is the source.** If you delete a copied event in iCloud, it comes back on the next sync. Change or decline it in Outlook instead.
@@ -70,7 +84,7 @@ AppleLook now lives in the menu bar (a calendar icon) and starts when you log in
 - **How AppleLook recognizes its own events:** each one has a link starting with `applelook://` in its details. Events without that link are never touched.
 - **The log** is at `~/Library/Logs/AppleLook.log`.
 
-## Updating
+### Updating
 
 AppleLook checks for new versions once a day. When one is out, **Update Available** appears at the top of its menu. You can also click the menu-bar icon → **Check for Updates…** at any time.
 
@@ -85,13 +99,13 @@ Your settings (Outlook link, calendar and options) are kept.
 
 On GitHub, you can also click **Watch → Custom → Releases** at the top of this page to get an email for each new version.
 
-## Removing AppleLook
+### Removing the Mac app
 
 1. Click the menu-bar icon → **Settings…** → **Remove AppleLook Events…** to delete the copies.
 2. Click the icon → **Quit AppleLook**.
 3. Drag AppleLook from Applications to the Trash.
 
-## Troubleshooting
+### Troubleshooting
 
 **"Outlook says the calendar link no longer works"**: the link was reset or unpublished. Publish again, copy the new ICS link, and paste it in Settings.
 
@@ -100,6 +114,97 @@ On GitHub, you can also click **Watch → Custom → Releases** at the top of th
 **My iCloud calendars aren't in the list**: check that iCloud Calendars is on for this Mac (System Settings → your name → iCloud).
 
 **Times are off**: tell us which time zone your Outlook calendar uses. Outlook writes Windows time zone names, and AppleLook converts them; an unknown one is noted in the log.
+
+## Linux server (AppleLook Server)
+
+AppleLook Server does the same job from a Docker container on a machine that's always on, such as a home server, NAS or Raspberry Pi. It keeps your family's calendar current while your laptop is closed, and you change its settings from a web page.
+
+### What you need
+
+- An always-on Linux machine (64-bit Intel/AMD or ARM, such as a Raspberry Pi 4 or 5) with [Docker Engine and the Compose plugin](https://docs.docker.com/engine/install/) and `git`.
+- Your [Outlook calendar link](#get-your-outlook-calendar-link).
+- Your Apple ID and an **app-specific password**: go to [account.apple.com](https://account.apple.com) → **Sign-In and Security** → **App-Specific Passwords** and create one named "AppleLook Server". A server can't use a Mac's iCloud sign-in, so it needs this password to reach iCloud Calendar. You can revoke it there at any time.
+- An iCloud calendar to copy into. You can create one from the settings page, or in Calendar on your Mac or iPhone.
+
+### Install the server
+
+1. Download AppleLook:
+
+   ```bash
+   git clone https://github.com/michaellorendiaz/AppleLook.git
+   cd AppleLook/server
+   ```
+
+2. Choose a login password for the settings page and set your time zone. Put them in a file named `docker-compose.override.yml` next to `docker-compose.yml`, so later updates don't overwrite them:
+
+   ```yaml
+   services:
+     applelook:
+       environment:
+         APPLELOOK_PASSWORD: "a-long-password-you-choose"
+         TZ: "America/New_York"
+   ```
+
+   The page listens on port 8080. If something else on the machine already uses 8080, add a different host port to the same file (this needs Docker Compose 2.24 or later; check with `docker compose version`):
+
+   ```yaml
+   services:
+     applelook:
+       ports: !override
+         - "8090:8080"
+       environment:
+         APPLELOOK_PASSWORD: "a-long-password-you-choose"
+         TZ: "America/New_York"
+   ```
+
+3. Build and start it:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. Check that it's running. This should print `ok`:
+
+   ```bash
+   curl -s http://localhost:8080/health
+   ```
+
+   (Use your port if you changed it.)
+
+### Set up the server
+
+1. From any computer on your home network, open `http://<server-address>:8080` (for example `http://192.168.1.20:8080`) and log in with the password from step 2.
+2. Paste your Outlook link, your Apple ID and the app-specific password.
+3. Choose the iCloud calendar to copy into, or create a new one from the page.
+4. Choose what others will see: a label, meeting titles, locations, and whether to include meetings marked Tentative or Free.
+5. Click **Preview** to check what would be added. It saves nothing. Then click **Save and Sync**.
+
+From then on it syncs at :00, :15, :30 and :45. Share the calendar from Calendar on your Mac or iPhone, the same as with the Mac version.
+
+> Keep the page on your home network. Don't forward its port from your router: the page holds your calendar link and iCloud password.
+
+### Updating the server
+
+```bash
+cd AppleLook/server
+git pull
+docker compose up -d --build
+```
+
+Your settings and password are kept in the `applelook-data` Docker volume.
+
+### Removing the server
+
+1. On the settings page, click **Remove Events…** to delete the copies from your calendar.
+2. Stop the container and delete its saved settings: `docker compose down -v`.
+3. Revoke the app-specific password at [account.apple.com](https://account.apple.com).
+
+### Server notes
+
+- **Logs:** `docker logs applelook`. Each sync logs a line like `sync ok: ... created=0 updated=0 deleted=0`.
+- **Home Assistant:** on Home Assistant OS or Supervised, AppleLook Server can also run as an add-on opened from the sidebar, behind Home Assistant's login. See [the server README](server/#option-1-home-assistant-add-on).
+- **Replacing outlook-icloud-bridge:** if you're moving from that older script, use **Advanced → Take over events from outlook-busy-bridge** so AppleLook manages the events it already made instead of adding copies. Details are in [the server README](server/).
+- **Don't run both versions into one calendar.** Point the Mac app and the server at different calendars, or your family sees every meeting twice.
 
 ## For developers
 
@@ -117,6 +222,8 @@ scripts/build-app.sh   # build/AppleLook.app and build/AppleLook.zip (Apple Sili
 ```
 
 Builds are signed with a self-signed certificate (`scripts/make-signing-cert.sh` creates it once) so that macOS keeps users' Calendar permission across updates. To publish a release, bump `CFBundleShortVersionString` in `Resources/Info.plist`, build, and attach `build/AppleLook.zip` to a GitHub Release tagged `v<version>`. The download button and the in-app update check both follow the latest release.
+
+AppleLook Server lives in [`server/`](server/): a Python package (Flask page plus the sync engine from outlook-icloud-bridge) with its own unit tests (`python -m unittest discover tests` in `server/`). The Home Assistant add-on wrapper is in [`home-assistant-addon/`](home-assistant-addon/). Bump the server's version in `server/pyproject.toml`, `server/applelook_server/__init__.py` and `home-assistant-addon/config.yaml` together.
 
 AppleLook grew out of [outlook-icloud-bridge](https://github.com/michaellorendiaz/outlook-icloud-bridge), a Python script that does the same job from the command line. The feed logic matches it event for event.
 
