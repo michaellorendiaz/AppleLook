@@ -203,7 +203,6 @@ Your settings and password are kept in the `applelook-data` Docker volume.
 
 - **Logs:** `docker logs applelook`. Each sync logs a line like `sync ok: ... created=0 updated=0 deleted=0`.
 - **Home Assistant:** on Home Assistant OS or Supervised, AppleLook Server can also run as an add-on opened from the sidebar, behind Home Assistant's login. See [the server README](server/#option-1-home-assistant-add-on).
-- **Replacing outlook-icloud-bridge:** if you're moving from that older script, use **Advanced → Take over events from outlook-busy-bridge** so AppleLook manages the events it already made instead of adding copies. Details are in [the server README](server/).
 - **Don't run both versions into one calendar.** Point the Mac app and the server at different calendars, or your family sees every meeting twice.
 
 ## For developers

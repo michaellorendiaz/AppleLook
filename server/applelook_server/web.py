@@ -112,6 +112,7 @@ def normalize_link(raw):
 def settings_from_form(f, cfg):
     """Apply the settings form to a copy of cfg. Returns (cfg, messages) or raises SyncError."""
     cfg = dict(cfg)
+    old_calendar = cfg["target_calendar"]
     notes = []
     link = normalize_link(f.get("feed_url"))
     if f.get("feed_url", "").strip() and not link:
@@ -126,9 +127,11 @@ def settings_from_form(f, cfg):
                 "skip_multiday_allday"):
         cfg[key] = key in f
     cfg["exclude_keywords"] = [k.strip() for k in f.get("exclude_keywords", "").split(",") if k.strip()]
-    # Taking over keeps outlook-busy-bridge's event IDs; otherwise they're made unique to
-    # this calendar so iCloud doesn't refuse them (412) when another calendar has them
-    cfg["uid_salt"] = "" if "takeover" in f else cfg["target_calendar"]
+    # Event IDs are made unique to the calendar so iCloud doesn't refuse them (412) when
+    # another calendar on the account has the same meetings. A calendar keeps the IDs it
+    # started with, so saving never re-creates its events.
+    if cfg["target_calendar"] != old_calendar:
+        cfg["uid_salt"] = cfg["target_calendar"]
     return cfg, notes
 
 
@@ -219,11 +222,7 @@ def create_app():
             "index.html", cfg=form_cfg, has_password=bool(password), password_from_env=store.password_from_env(),
             calendars=calendars, calendar_error=calendar_error, complete=saved_complete,
             status=status, preview=preview, saved_calendar=cfg["target_calendar"],
-            example=engine.event_summary("Budget review", form_cfg),
-            # unchecked until a calendar has been saved, so new installs get unique IDs;
-            # after a Preview, whatever was ticked for it
-            takeover=preview["takeover"] if preview else
-                     bool(cfg["target_calendar"]) and cfg["uid_salt"] == "")
+            example=engine.event_summary("Budget review", form_cfg))
 
     @app.post("/save")
     def save():
@@ -268,6 +267,7 @@ def create_app():
             engine.create_calendar(cfg["apple_id"], store.icloud_password(), name)
             _calendar_cache["key"] = None
             cfg["target_calendar"] = name
+            cfg["uid_salt"] = name
             store.save_settings(cfg)
             flash(f"Created {name!r} in iCloud and chose it. Click Save and Sync to fill it.", "ok")
         except engine.SyncError as exc:
@@ -291,7 +291,7 @@ def create_app():
             _previews[token] = {"summary": f"{r['desired']} events from Outlook. A sync would add "
                                            f"{r['created']}, change {r['updated']} and remove {r['deleted']}.",
                                 "changes": r["changes"],
-                                "cfg": cfg, "takeover": "takeover" in request.form}
+                                "cfg": cfg}
             session["preview"] = token
         except engine.SyncError as exc:
             flash(str(exc), "error")

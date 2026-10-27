@@ -87,8 +87,6 @@
     <label class="field" for="exclude_keywords">Skip meetings whose title contains</label>
     <input type="text" id="exclude_keywords" name="exclude_keywords" value="{{ cfg.exclude_keywords | join(', ') }}" placeholder="Focus time, Lunch">
     <p class="hint">Separate words with commas. Not case-sensitive.</p>
-    <label class="check"><input type="checkbox" name="takeover" {% if takeover %}checked{% endif %}>
-      <span>Take over events from outlook-busy-bridge<br><span class="hint">Only when this replaces that older script in the same calendar: AppleLook then manages the events it already made instead of adding copies. Leave off otherwise.</span></span></label>
   </details>
 </div>
 

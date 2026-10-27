@@ -95,11 +95,16 @@ class SettingsTests(unittest.TestCase):
         self.assertIn("look like a calendar link", self.save(feed_url="not a link"))
         self.assertFalse((self.store.DATA / "settings.json").exists())
 
-    def test_takeover_controls_event_id_salt(self):
-        self.save(target_calendar="Family", takeover="on")
-        self.assertEqual(json.loads((self.store.DATA / "settings.json").read_text())["uid_salt"], "")
+    def test_a_calendar_keeps_its_event_ids(self):
+        settings = lambda: json.loads((self.store.DATA / "settings.json").read_text())
         self.save(target_calendar="Family")
-        self.assertEqual(json.loads((self.store.DATA / "settings.json").read_text())["uid_salt"], "Family")
+        self.assertEqual(settings()["uid_salt"], "Family", "a new calendar gets IDs unique to it")
+        # a calendar set up with the original (unsalted) IDs keeps them on every save
+        self.store.save_settings({**settings(), "uid_salt": ""})
+        self.save(target_calendar="Family")
+        self.assertEqual(settings()["uid_salt"], "")
+        self.save(target_calendar="Kids")
+        self.assertEqual(settings()["uid_salt"], "Kids", "switching calendars makes new IDs")
 
     def test_preview_keeps_the_previewed_settings_on_the_page(self):
         # after Preview the form must show what was previewed, so Save and Sync saves that
@@ -111,11 +116,11 @@ class SettingsTests(unittest.TestCase):
                 "csrf": csrf_of(self.c), "feed_url": "https://x.example/calendar.ics",
                 "apple_id": "me@example.com", "icloud_password": "abcd-efgh-ijkl-mnop",
                 "target_calendar": "Family", "label": "Work", "include_titles": "on",
-                "skip_multiday_allday": "on", "takeover": "on"}).get_data(as_text=True)
+                "skip_multiday_allday": "on"}).get_data(as_text=True)
         self.assertIn("A sync would add 0", page)
         self.assertRegex(page, r'name="include_titles" checked')
         self.assertRegex(page, r'name="skip_multiday_allday" checked')
-        self.assertRegex(page, r'name="takeover" checked')
+        self.assertNotIn('name="takeover"', page)
         self.assertRegex(page, r'value="Family" selected')
         self.assertFalse((self.store.DATA / "settings.json").exists(), "Preview saves nothing")
 

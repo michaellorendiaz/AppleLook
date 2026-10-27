@@ -13,6 +13,4 @@ Open **AppleLook** in the sidebar and fill in:
 
 Then **Save and Sync**. Settings live in this add-on's storage and survive updates.
 
-AppleLook only changes events it added itself. If it replaces outlook-busy-bridge in
-the same calendar, tick **Advanced → Take over events from outlook-busy-bridge** so it
-manages those events instead of adding copies.
+AppleLook only changes events it added itself.

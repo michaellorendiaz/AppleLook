@@ -48,8 +48,6 @@ Keep the page on your home network. Don't forward port 8080 from your router: it
 
 **Preview** shows what a sync would add, change and remove, without saving. **Save and Sync** saves and syncs right away; after that it syncs at :00, :15, :30 and :45. **Remove Events…** deletes everything AppleLook added to the calendar.
 
-**Advanced → Take over events from outlook-busy-bridge**: tick this only when AppleLook replaces that older script (or [outlook-icloud-bridge](https://github.com/michaellorendiaz/outlook-icloud-bridge)) in the same calendar. AppleLook then recognizes and manages the events it already made, instead of adding copies. Stop the old script first. Leave this off otherwise.
-
 ## Configuration
 
 | Variable | Default | What it does |

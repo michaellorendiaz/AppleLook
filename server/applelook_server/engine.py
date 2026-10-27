@@ -288,8 +288,8 @@ def sync(cfg, password, dry_run=False):
                         raise
                     raise SyncError(
                         "iCloud refused to add an event because one with the same ID is already in "
-                        "another calendar on this account. Turn off \"Take over events from "
-                        "outlook-busy-bridge\" in Advanced, or remove the old copies.")
+                        "another calendar on this account. Delete AppleLook's old copies from that "
+                        "calendar, then sync again.")
             result["created"] += 1
         elif existing_props(existing[uid]) != (s, e, loc, summary, free):
             result["changes"].append(f"Change: {fmt(s, e, allday)} {summary}")
