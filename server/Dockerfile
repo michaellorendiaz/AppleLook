@@ -1,4 +1,4 @@
-# AppleLook Server: docker compose up -d (see README.md)
+# AppleLook Server image, published as ghcr.io/michaellorendiaz/applelook (see README.md)
 FROM python:3.12-slim
 
 # tzdata so TZ=America/New_York etc. shows times in your zone

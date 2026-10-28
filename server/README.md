@@ -20,22 +20,29 @@ It runs two ways:
 
 ## Option 2: Docker Compose
 
-```bash
-git clone https://github.com/michaellorendiaz/AppleLook.git
-cd AppleLook/server
-cat > docker-compose.override.yml <<'EOF'
+Put this in a `docker-compose.yml` (or add the service to one you already have), with your own password and time zone:
+
+```yaml
 services:
   applelook:
+    image: ghcr.io/michaellorendiaz/applelook:latest
+    container_name: applelook
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
     environment:
       APPLELOOK_PASSWORD: "a-long-password-you-choose"
       TZ: "America/New_York"
-EOF
-docker compose up -d --build
+    volumes:
+      - applelook-data:/data
+
+volumes:
+  applelook-data:
 ```
 
-Keeping your settings in `docker-compose.override.yml` means `git pull` never conflicts with them. If port 8080 is taken, add `ports: !override ["8090:8080"]` under `applelook:` in that file (Docker Compose 2.24 or later).
+Then run `docker compose up -d`, open `http://<this-machine>:8080`, log in with `APPLELOOK_PASSWORD`, and fill in the settings. If port 8080 is taken, change the left number, like `"8090:8080"`.
 
-Open `http://<this-machine>:8080`, log in with `APPLELOOK_PASSWORD`, and fill in the settings. To update later: `git pull && docker compose up -d --build`. Settings are kept in the `applelook-data` volume.
+To update: `docker compose pull && docker compose up -d`. Settings are kept in the `applelook-data` volume. The image runs on Intel and ARM (including Raspberry Pi). To pin a version instead of `latest`, use a tag like `ghcr.io/michaellorendiaz/applelook:0.3.1`.
 
 Keep the page on your home network. Don't forward port 8080 from your router: it holds your calendar link and iCloud password.
 
@@ -62,6 +69,8 @@ Keep the page on your home network. Don't forward port 8080 from your router: it
 Logs go to the container's output: `docker logs applelook`, or the add-on's **Log** tab.
 
 ## Development
+
+To build the image yourself instead of pulling it, clone the repo and in `server/` change `image:` to `build: .` in `docker-compose.yml`, then `docker compose up -d --build`. Publishing a GitHub release builds and pushes the image (`.github/workflows/server-image.yml`).
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
