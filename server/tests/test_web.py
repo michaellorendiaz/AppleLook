@@ -141,6 +141,11 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual((cfg["alt_label_keywords"], cfg["alt_label"]), (["ART", "DES"], "Teaching"))
         self.assertIn('value="ART, DES"', page)
         self.assertIn("Teaching (ART 120)", page)
+        self.assertIn("<details open>", page, "Advanced opens when a rule is set")
+        self.save(label="Work", title_format="{label} ({event})", alt_label_keywords="ART",
+                  alt_label="Teaching", alt_title_format="{event}  ({label})")
+        cfg = json.loads((self.store.DATA / "settings.json").read_text())
+        self.assertEqual(cfg["alt_title_format"], "{event} ({label})")
 
     def test_old_settings_show_the_matching_template(self):
         self.store.save_settings({**self.store.load_settings(), "label": "Work", "include_titles": True})

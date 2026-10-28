@@ -52,9 +52,16 @@
   .status .big { font-size: 17px; font-weight: 600; }
   .muted { color: var(--muted); }
   ul.plain { margin: 8px 0 0; padding-left: 18px; }
+  h3.sub { font-size: 14px; margin: 20px 0 0; padding-top: 14px; border-top: 1px solid var(--line); }
   details summary { cursor: pointer; font-weight: 600; }
   code { font-size: 13px; }
-  footer { color: var(--muted); font-size: 12px; text-align: center; }
+  footer { color: var(--muted); font-size: 12px; text-align: center; margin-top: 28px; }
+  /* the same yellow capsule as the Mac app's settings window */
+  .coffee { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 10px;
+            padding: 10px 24px; border-radius: 999px; background: #ffdd00; color: #000;
+            font-size: 18px; font-weight: 600; text-decoration: none; }
+  .coffee:hover { background: #ffe433; }
+  .coffee svg { width: 22px; height: 22px; }
 </style>
 </head>
 <body>
@@ -72,7 +79,12 @@
     <div class="flash {{ category }}">{{ message }}</div>
   {% endfor %}
   {% block body %}{% endblock %}
-  <footer>AppleLook Server {{ version }} · <a href="https://github.com/michaellorendiaz/AppleLook">GitHub</a> · <a href="https://buymeacoffee.com/michaellorendiaz" target="_blank" rel="noopener">Buy me a coffee</a></footer>
+  <footer>
+    <a class="coffee" href="https://buymeacoffee.com/michaellorendiaz" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 7h14v6a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V7Zm14 1h1.5a2.5 2.5 0 0 1 0 5H17v-1.6h1.5a.9.9 0 0 0 0-1.8H17V8ZM2 19.5h17a.5.5 0 0 1 0 1H2a.5.5 0 0 1 0-1ZM7 2.5c.6.6.6 1.4 0 2s-.6 1.4 0 2M10 2.5c.6.6.6 1.4 0 2s-.6 1.4 0 2M13 2.5c.6.6.6 1.4 0 2s-.6 1.4 0 2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Buy me a coffee</a>
+    <div>AppleLook Server {{ version }} · <a href="https://github.com/michaellorendiaz/AppleLook">GitHub</a></div>
+  </footer>
 </main>
 </body>
 </html>

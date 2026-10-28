@@ -190,13 +190,23 @@ class AltLabelTests(unittest.TestCase):
 
     def test_case_sensitive_whole_word(self):
         for title in ("Art show", "art 120", "PARTY planning", "DEPARTMENT meeting", "ARTS council"):
-            self.assertEqual(engine.label_for(title, self.cfg), "Work", title)
-        self.assertEqual(engine.label_for("Critique (ART 209)", self.cfg), "Teaching")
+            self.assertFalse(engine.alt_rule_applies(title, self.cfg), title)
+        self.assertTrue(engine.alt_rule_applies("Critique (ART 209)", self.cfg))
 
     def test_several_keywords_and_no_titles(self):
         cfg = dict(self.cfg, alt_label_keywords=["ART", "DES"], title_format="{label}")
         self.assertEqual(engine.event_summary("DES 101", cfg), "Teaching")
         self.assertEqual(engine.event_summary("Faculty meeting", cfg), "Work")
+
+    def test_its_own_event_title(self):
+        cfg = dict(self.cfg, alt_title_format="{event} ({label})")
+        self.assertEqual(engine.event_summary("ART 120", cfg), "ART 120 (Teaching)")
+        self.assertEqual(engine.event_summary("Budget review", cfg), "Work (Budget review)",
+                         "other meetings keep the usual title")
+        cfg = dict(self.cfg, title_format="{label}", alt_title_format="Class: {event}")
+        self.assertEqual(engine.event_summary("ART 209", cfg), "Class: ART 209",
+                         "the rule can show titles even when others don't")
+        self.assertEqual(engine.event_summary("Budget review", cfg), "Work")
 
     def test_no_keywords_changes_nothing(self):
         cfg = dict(self.cfg, alt_label_keywords=[])

@@ -157,6 +157,7 @@ def settings_from_form(f, cfg):
         cfg["title_format"] = None  # built from label and include_titles
     cfg["alt_label_keywords"] = [k.strip() for k in f.get("alt_label_keywords", "").split(",") if k.strip()]
     cfg["alt_label"] = f.get("alt_label", "").strip()
+    cfg["alt_title_format"] = " ".join(f.get("alt_title_format", "").split())
     cfg["exclude_keywords"] = [k.strip() for k in f.get("exclude_keywords", "").split(",") if k.strip()]
     # Event IDs are made unique to the calendar so iCloud doesn't refuse them (412) when
     # another calendar on the account has the same meetings. A calendar keeps the IDs it
