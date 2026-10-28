@@ -118,11 +118,27 @@ class SettingsTests(unittest.TestCase):
                 "target_calendar": "Family", "label": "Work", "include_titles": "on",
                 "skip_multiday_allday": "on"}).get_data(as_text=True)
         self.assertIn("A sync would add 0", page)
-        self.assertRegex(page, r'name="include_titles" checked')
+        self.assertRegex(page, r'name="include_titles" data-token="\{event\}" checked')
         self.assertRegex(page, r'name="skip_multiday_allday" checked')
         self.assertNotIn('name="takeover"', page)
         self.assertRegex(page, r'value="Family" selected')
         self.assertFalse((self.store.DATA / "settings.json").exists(), "Preview saves nothing")
+
+    def test_title_template_is_saved_and_drives_the_titles_checkbox(self):
+        settings = lambda: json.loads((self.store.DATA / "settings.json").read_text())
+        page = self.save(label="Work", title_format="{event}   ({label})")
+        self.assertEqual(settings()["title_format"], "{event} ({label})")
+        self.assertTrue(settings()["include_titles"], "{event} in the template means titles are on")
+        self.assertRegex(page, r'name="include_titles" data-token="\{event\}" checked')
+        self.assertIn("Budget review (Work)", page)
+        self.save(label="Work", title_format="{label}", include_titles="on")
+        self.assertFalse(settings()["include_titles"], "the template wins over the checkbox")
+
+    def test_old_settings_show_the_matching_template(self):
+        self.store.save_settings({**self.store.load_settings(), "label": "Work", "include_titles": True})
+        page = self.c.get("/").get_data(as_text=True)
+        self.assertIn('value="{label} ({event})"', page)
+        self.assertIn("Work (Budget review)", page)
 
     def test_password_saved_privately_and_never_shown(self):
         # no follow-up page load: with an Apple ID and password saved it would contact iCloud
@@ -132,6 +148,49 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(path.read_text(), "abcd-efgh-ijkl-mnop")
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         self.assertNotIn("abcd-efgh-ijkl-mnop", page)
+
+
+class RetryTests(unittest.TestCase):
+    """iCloud sometimes turns a good password away; a sync retries once, and only
+    several failures in a row blame the password."""
+
+    def setUp(self):
+        self.app, self.store = make_app(auth="none")
+        from applelook_server import web
+        self.web = web
+        self.store.save_settings({**self.store.load_settings(), "feed_url": "https://x.example/c.ics",
+                                  "apple_id": "me@example.com", "target_calendar": "Family"})
+        self.store.save_icloud_password("abcd-efgh-ijkl-mnop")
+        self.ok = {"desired": 1, "created": 0, "updated": 0, "deleted": 0, "changes": []}
+
+    def sync_with(self, *outcomes):
+        from unittest import mock
+        with mock.patch.object(self.web.engine, "sync", side_effect=list(outcomes)) as m:
+            try:
+                return self.web.run_sync(retry_wait=0), m.call_count
+            except self.web.engine.SyncError as exc:
+                return str(exc), m.call_count
+
+    def test_one_rejection_is_retried(self):
+        result, calls = self.sync_with(self.web.engine.AuthError("no"), self.ok)
+        self.assertEqual((result, calls), (self.ok, 2))
+        self.assertIsNone(self.web.status.last_error)
+
+    def test_only_repeated_rejections_blame_the_password(self):
+        no = self.web.engine.AuthError("no")
+        for _ in range(2):
+            message, _ = self.sync_with(no, no)
+            self.assertIn("try again at the next sync", message)
+        message, _ = self.sync_with(no, no)
+        self.assertIn("3 syncs in a row", message)
+        self.assertIn("account.apple.com", message)
+        self.sync_with(self.ok)
+        self.assertEqual(self.web.status.auth_fails, 0, "a good sync resets the count")
+
+    def test_failures_reach_the_container_log(self):
+        with self.assertLogs("applelook", level="WARNING") as logs:
+            self.sync_with(self.web.engine.SyncError("The iCloud calendar 'Family' wasn't found."))
+        self.assertTrue(any("sync failed" in line for line in logs.output))
 
 
 if __name__ == "__main__":

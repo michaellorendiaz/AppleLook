@@ -143,6 +143,41 @@ class BridgeParityTests(unittest.TestCase):
         self.assertEqual(len(desired(window_fwd_days=2)), 2)  # busy-1 + first standup
 
 
+class TitleTemplateTests(unittest.TestCase):
+    def test_old_settings_keep_their_titles(self):
+        # settings saved before templates existed must produce exactly the same titles
+        for label, titles in (("Work", True), ("", True), ("Work", False), ("", False)):
+            cfg = dict(engine.DEFAULTS, label=label, include_titles=titles)
+            old = f"{label} (Budget review)" if label and titles else (label or ("Budget review" if titles else "") or "Busy")
+            self.assertEqual(engine.event_summary("Budget review", cfg), old)
+
+    def test_custom_templates(self):
+        cases = {
+            "{label}: {event}": "Work: Budget review",
+            "{event} ({label})": "Budget review (Work)",
+            "[{label}] {event}": "[Work] Budget review",
+            "{event}": "Budget review",
+            "Out of office": "Out of office",
+            "": "Busy",
+        }
+        for template, title in cases.items():
+            cfg = dict(engine.DEFAULTS, label="Work", title_format=template)
+            self.assertEqual(engine.event_summary("Budget review", cfg), title, template)
+
+    def test_an_empty_variable_leaves_no_stray_punctuation(self):
+        self.assertEqual(engine.render_title("{label} ({event})", "Work", ""), "Work")
+        self.assertEqual(engine.render_title("{label}: {event}", "", "Budget review"), "Budget review")
+        self.assertEqual(engine.render_title("{event} [{label}]", "", "Budget review"), "Budget review")
+        self.assertEqual(engine.render_title("({label})", "", ""), "Busy")
+
+    def test_the_meeting_title_is_never_trimmed(self):
+        self.assertEqual(engine.render_title("{label}: {event}", "", "Sync w/ J.R."), "Sync w/ J.R.")
+
+    def test_no_event_variable_means_no_titles(self):
+        cfg = dict(engine.DEFAULTS, label="Work", title_format="{label}")
+        self.assertEqual(set(summaries(engine.build_desired(Calendar.from_ical(FEED), cfg, now=NOW))), {"Work"})
+
+
 class ServerAdditionsTests(unittest.TestCase):
     def test_free_toggle(self):
         d = desired(include_titles=True, label="", include_free=True)

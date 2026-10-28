@@ -11,6 +11,7 @@ caller instead of only logged, and no macOS Keychain.
 import datetime as dt
 import hashlib
 import logging
+import re
 import time
 
 import caldav
@@ -25,6 +26,7 @@ BUSY_STATUSES = {"BUSY", "TENTATIVE", "OOF", "WORKINGELSEWHERE"}
 DEFAULTS = {
     "label": "Work",
     "include_titles": False,
+    "title_format": None,   # e.g. "{label} ({event})"; None = built from label/include_titles
     "include_location": False,
     "online_as_remote": True,
     "include_tentative": True,
@@ -41,6 +43,11 @@ log = logging.getLogger("applelook")
 
 class SyncError(Exception):
     """A problem worth showing to the user as-is."""
+
+
+class AuthError(SyncError):
+    """iCloud turned the sign-in away. Usually a bad password, but iCloud also
+    rejects a good one now and then, so callers retry before blaming it."""
 
 
 def to_utc(value):
@@ -120,13 +127,49 @@ def fetch_feed(url, attempts=3, delay=20):
             time.sleep(delay)
 
 
+def title_format(cfg):
+    """The title template. Settings saved before templates existed get the
+    template that reproduces their old titles exactly."""
+    if cfg.get("title_format") is not None:
+        return cfg["title_format"]
+    label = (cfg.get("label") or "").strip()
+    if cfg.get("include_titles"):
+        return "{label} ({event})" if label else "{event}"
+    return "{label}" if label else ""
+
+
+SEPARATORS = " \t:;,.|/\\-\u2013\u2014\u00b7"
+
+
+def tidy_template(template):
+    """Clean up a template after an empty variable was taken out of it: empty
+    brackets, separators left at either end, or brackets around everything."""
+    t = re.sub(r"\(\s*\)|\[\s*\]|\{\s*\}", "", template)
+    t = re.sub(r"\s+", " ", t).strip(SEPARATORS)
+    m = re.fullmatch(r"\((.*)\)|\[(.*)\]", t)
+    if m and not re.search(r"[()\[\]]", m.group(1) or m.group(2)):
+        t = (m.group(1) or m.group(2)).strip(SEPARATORS)
+    return t
+
+
+def render_title(template, label, event):
+    """Fill {label} and {event}. An empty one is taken out of the template first,
+    so "{label} ({event})" with no title gives "Work", not "Work ()". The meeting
+    title itself is never trimmed or changed."""
+    values = {"{label}": label.strip(), "{event}": event}
+    empty = [tok for tok, val in values.items() if tok in template and not val.strip()]
+    if empty:
+        for tok in empty:
+            template = template.replace(tok, "")
+        template = tidy_template(template)
+    s = template.replace("{label}", values["{label}"]).replace("{event}", values["{event}"])
+    return s if s.strip() else "Busy"
+
+
 def event_summary(title, cfg):
-    """'Label (Title)', 'Label', or just 'Title' when label is empty."""
-    label = (cfg["label"] or "").strip()
-    title = title if cfg["include_titles"] else ""
-    if label and title:
-        return f"{label} ({title})"
-    return label or title or "Busy"
+    """The event title others see, from the title template."""
+    template = title_format(cfg)
+    return render_title(template, cfg.get("label") or "", title if "{event}" in template else "")
 
 
 def excluded(title, cfg):
@@ -231,14 +274,14 @@ def calendar_names(apple_id, password):
                 names.append(c.name)
         return sorted(n for n in names if n)
     except caldav.lib.error.AuthorizationError:
-        raise SyncError("iCloud didn't accept the Apple ID and app-specific password.")
+        raise AuthError("iCloud didn't accept the Apple ID and app-specific password.")
 
 
 def create_calendar(apple_id, password, name):
     try:
         client(apple_id, password).principal().make_calendar(name=name)
     except caldav.lib.error.AuthorizationError:
-        raise SyncError("iCloud didn't accept the Apple ID and app-specific password.")
+        raise AuthError("iCloud didn't accept the Apple ID and app-specific password.")
 
 
 def find_calendar(cfg, password):
@@ -251,8 +294,7 @@ def find_calendar(cfg, password):
             if name == cfg["target_calendar"]:
                 return c
     except caldav.lib.error.AuthorizationError:
-        raise SyncError("iCloud didn't accept the Apple ID and app-specific password. "
-                        "Create a new app-specific password at account.apple.com and enter it again.")
+        raise AuthError("iCloud didn't accept the Apple ID and app-specific password.")
     raise SyncError(f"The iCloud calendar {cfg['target_calendar']!r} wasn't found. Pick one in Settings.")
 
 
@@ -266,6 +308,13 @@ def fmt(start, end, allday):
 def sync(cfg, password, dry_run=False):
     """Make the calendar match the feed. Returns a dict of counts (and, for a dry
     run, what would change)."""
+    try:
+        return _sync(cfg, password, dry_run)
+    except caldav.lib.error.AuthorizationError:  # a 401 partway through
+        raise AuthError("iCloud didn't accept the Apple ID and app-specific password.")
+
+
+def _sync(cfg, password, dry_run):
     calendar = find_calendar(cfg, password)
     feed = fetch_feed(cfg["feed_url"])
     desired = build_desired(feed, cfg)

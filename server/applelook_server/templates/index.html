@@ -67,13 +67,24 @@
     <p class="hint">Save your Apple ID and app-specific password first; your calendars then appear here.</p>
   {% endif %}
   <p class="hint">Use a separate calendar, then share it with family in the Calendar app. AppleLook only changes events it added itself.</p>
+  {% if cfg.apple_id and has_password %}
+  <label class="field" for="new_calendar">Or create a new iCloud calendar</label>
+  <div class="row">
+    <input type="text" id="new_calendar" name="name" form="create-calendar" value="AppleLook" required>
+    <button form="create-calendar">Create</button>
+  </div>
+  {% endif %}
 </div>
 
 <div class="card">
   <h2>4. What others will see</h2>
   <label class="field" for="label">Label</label>
-  <input type="text" id="label" name="label" value="{{ cfg.label }}">
-  <label class="check"><input type="checkbox" name="include_titles" {% if cfg.include_titles %}checked{% endif %}> Show meeting titles</label>
+  <input type="text" id="label" name="label" value="{{ cfg.label }}" placeholder="Work">
+  <label class="field" for="title_format">Event title</label>
+  <input type="text" id="title_format" name="title_format" value="{{ title_format }}" placeholder="Busy" autocomplete="off" spellcheck="false">
+  <p class="hint"><code>{label}</code> is the label above and <code>{event}</code> is the meeting’s title. Type anything around them, like <code>{label}: {event}</code> or <code>{event} ({label})</code>. Left empty, events show as “Busy”.</p>
+  <label class="check"><input type="checkbox" name="show_label" data-token="{label}" {% if '{label}' in title_format %}checked{% endif %}> Show the label</label>
+  <label class="check"><input type="checkbox" name="include_titles" data-token="{event}" {% if '{event}' in title_format %}checked{% endif %}> Show meeting titles</label>
   <label class="check"><input type="checkbox" name="include_location" {% if cfg.include_location %}checked{% endif %}> Show locations (online meetings show as “Remote”)</label>
   <label class="check"><input type="checkbox" name="include_tentative" {% if cfg.include_tentative %}checked{% endif %}> Include meetings marked Tentative</label>
   <label class="check"><input type="checkbox" name="include_free" {% if cfg.include_free %}checked{% endif %}> Include meetings marked Free</label>
@@ -97,14 +108,7 @@
 </form>
 
 {% if cfg.apple_id and has_password %}
-<div class="card" style="margin-top:16px">
-  <h2>Create a new iCloud calendar</h2>
-  <form method="post" action="create-calendar" class="row">
-    <input type="hidden" name="csrf" value="{{ csrf }}">
-    <input type="text" name="name" value="AppleLook" required>
-    <button>Create</button>
-  </form>
-</div>
+<form method="post" action="create-calendar" id="create-calendar"><input type="hidden" name="csrf" value="{{ csrf }}"></form>
 {% endif %}
 
 <div class="card">
@@ -127,14 +131,50 @@
 {% endif %}
 
 <script>
-  // Live example of what others will see, mirroring engine.event_summary
+  // The checkboxes add and remove {label} and {event} in the title template, and
+  // typing in the template ticks or unticks them. The example mirrors
+  // engine.render_title.
   const form = document.getElementById("settings");
-  function example() {
-    const label = form.label.value.trim();
-    const title = form.include_titles.checked ? "Budget review" : "";
-    document.getElementById("example").textContent =
-      label && title ? `${label} (${title})` : (label || title || "Busy");
+  const fmt = form.title_format;
+  const boxes = [...form.querySelectorAll("input[data-token]")];
+  const SEP = " \t:;,.|/\\-–—·";
+
+  function trimSep(s) {
+    let a = 0, b = s.length;
+    while (a < b && SEP.includes(s[a])) a++;
+    while (b > a && SEP.includes(s[b - 1])) b--;
+    return s.slice(a, b);
   }
+  function tidy(t) {
+    t = trimSep(t.replace(/\(\s*\)|\[\s*\]|\{\s*\}/g, "").replace(/\s+/g, " "));
+    const m = t.match(/^\((.*)\)$|^\[(.*)\]$/);
+    if (m) { const inner = m[1] ?? m[2]; if (!/[()\[\]]/.test(inner)) t = trimSep(inner); }
+    return t;
+  }
+  function render(t, label, event) {
+    const values = {"{label}": label.trim(), "{event}": event};
+    let empty = false;
+    for (const tok in values) if (t.includes(tok) && !values[tok].trim()) { t = t.split(tok).join(""); empty = true; }
+    if (empty) t = tidy(t);
+    const s = t.split("{label}").join(values["{label}"]).split("{event}").join(values["{event}"]);
+    return s.trim() ? s : "Busy";
+  }
+  function addToken(t, tok) {
+    t = t.trim();
+    if (!t) return tok;
+    if (t === "{label}" || t === "{event}") return "{label} ({event})";
+    return tok === "{event}" ? `${t} ${tok}` : `${tok} ${t}`;
+  }
+  function example() {
+    document.getElementById("example").textContent = render(fmt.value, form.label.value, "Budget review");
+  }
+  boxes.forEach(box => box.addEventListener("change", () => {
+    const tok = box.dataset.token;
+    if (box.checked && !fmt.value.includes(tok)) fmt.value = addToken(fmt.value, tok);
+    if (!box.checked) fmt.value = tidy(fmt.value.split(tok).join(""));
+    example();
+  }));
+  fmt.addEventListener("input", () => boxes.forEach(box => { box.checked = fmt.value.includes(box.dataset.token); }));
   form.addEventListener("input", example);
 </script>
 {% endblock %}

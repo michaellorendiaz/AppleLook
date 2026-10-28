@@ -27,6 +27,8 @@ from . import __version__, engine, store
 
 INGRESS_PROXY = "172.30.32.2"   # Home Assistant's ingress gateway
 INTERVAL_MIN = 15
+AUTH_RETRY_WAIT = 30    # seconds before retrying a sign-in iCloud turned away
+AUTH_FAILS_TO_BLAME = 3  # syncs in a row before blaming the password
 
 log = logging.getLogger("applelook")
 
@@ -40,6 +42,7 @@ class Status:
         self.last_result = None
         self.last_error = None
         self.next_run = None
+        self.auth_fails = 0                 # sign-in rejections in a row
         self.activity = deque(maxlen=30)    # (time, message), newest last
 
     def note(self, message):
@@ -51,31 +54,51 @@ _calendar_cache = {"key": None, "names": [], "at": 0.0}
 _previews = {}  # token -> preview; kept server-side because a cookie holds only ~4 KB
 
 
-def run_sync(dry_run=False):
+def run_sync(dry_run=False, retry_wait=AUTH_RETRY_WAIT):
     """Sync (or preview) with the saved settings. Returns the result or raises SyncError."""
     cfg = store.load_settings()
     if not store.is_complete(cfg):
         raise engine.SyncError("Finish the settings first.")
     with status.lock:
         try:
-            result = engine.sync(cfg, store.icloud_password(), dry_run=dry_run)
+            try:
+                result = engine.sync(cfg, store.icloud_password(), dry_run=dry_run)
+            except engine.AuthError:
+                # iCloud now and then rejects a good password; one retry usually works
+                log.warning("iCloud turned the sign-in away; retrying in %ds", retry_wait)
+                time.sleep(retry_wait)
+                result = engine.sync(cfg, store.icloud_password(), dry_run=dry_run)
+        except engine.AuthError:
+            status.auth_fails += 1
+            if status.auth_fails >= AUTH_FAILS_TO_BLAME:
+                message = (f"iCloud didn't accept the Apple ID and app-specific password "
+                           f"{status.auth_fails} syncs in a row. Create a new app-specific password "
+                           f"at account.apple.com and enter it again.")
+            else:
+                message = ("iCloud turned the sign-in away, which happens now and then. "
+                           "AppleLook will try again at the next sync.")
+            return _failed(message, dry_run)
         except engine.SyncError as exc:
-            if not dry_run:
-                status.last_run, status.last_error = dt.datetime.now().astimezone(), str(exc)
-                status.note(f"Sync failed: {exc}")
-            raise
+            return _failed(str(exc), dry_run)
         except Exception as exc:  # network trouble, iCloud hiccups: keep the scheduler alive
             log.exception("sync failed")
-            message = f"Unexpected error: {exc}"
-            if not dry_run:
-                status.last_run, status.last_error = dt.datetime.now().astimezone(), message
-                status.note(f"Sync failed: {message}")
-            raise engine.SyncError(message)
+            return _failed(f"Unexpected error: {exc}", dry_run, logged=True)
+        status.auth_fails = 0
         if not dry_run:
             status.last_run, status.last_result, status.last_error = dt.datetime.now().astimezone(), result, None
             status.note(f"Synced: {result['desired']} events, added {result['created']}, "
                         f"changed {result['updated']}, removed {result['deleted']}")
         return result
+
+
+def _failed(message, dry_run, logged=False):
+    """Record a failed sync (on the page and in the container log) and raise it."""
+    if not logged:
+        log.warning("sync failed: %s", message)
+    if not dry_run:
+        status.last_run, status.last_error = dt.datetime.now().astimezone(), message
+        status.note(f"Sync failed: {message}")
+    raise engine.SyncError(message)
 
 
 def next_slot(now):
@@ -126,6 +149,12 @@ def settings_from_form(f, cfg):
     for key in ("include_titles", "include_location", "include_tentative", "include_free",
                 "skip_multiday_allday"):
         cfg[key] = key in f
+    if "title_format" in f:
+        # the template is the truth; the checkboxes on the page only edit it
+        cfg["title_format"] = " ".join(f["title_format"].split())
+        cfg["include_titles"] = "{event}" in cfg["title_format"]
+    else:
+        cfg["title_format"] = None  # built from label and include_titles
     cfg["exclude_keywords"] = [k.strip() for k in f.get("exclude_keywords", "").split(",") if k.strip()]
     # Event IDs are made unique to the calendar so iCloud doesn't refuse them (412) when
     # another calendar on the account has the same meetings. A calendar keeps the IDs it
@@ -222,6 +251,7 @@ def create_app():
             "index.html", cfg=form_cfg, has_password=bool(password), password_from_env=store.password_from_env(),
             calendars=calendars, calendar_error=calendar_error, complete=saved_complete,
             status=status, preview=preview, saved_calendar=cfg["target_calendar"],
+            title_format=engine.title_format(form_cfg),
             example=engine.event_summary("Budget review", form_cfg))
 
     @app.post("/save")
@@ -250,7 +280,7 @@ def create_app():
                 flash(f"Couldn't remove the events from {old_calendar!r}: {exc}", "error")
         if store.is_complete(cfg):
             try:
-                r = run_sync()
+                r = run_sync(retry_wait=5)
                 flash(f"Saved and synced {r['desired']} events: added {r['created']}, "
                       f"changed {r['updated']}, removed {r['deleted']}.", "ok")
             except engine.SyncError as exc:
@@ -303,7 +333,7 @@ def create_app():
     @app.post("/sync")
     def sync_now():
         try:
-            r = run_sync()
+            r = run_sync(retry_wait=5)
             flash(f"Synced {r['desired']} events: added {r['created']}, changed {r['updated']}, "
                   f"removed {r['deleted']}.", "ok")
         except engine.SyncError as exc:
