@@ -59,7 +59,7 @@ enum SetupWindow {
             let w = NSWindow(contentViewController: host)
             w.title = "AppleLook Settings"
             w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-            w.setContentSize(NSSize(width: 560, height: 720))
+            w.setContentSize(NSSize(width: 560, height: 880))
             w.contentMinSize = NSSize(width: 560, height: 420)
             w.isReleasedWhenClosed = false
             w.center()

@@ -98,6 +98,24 @@ struct SetupView: View {
                         .foregroundStyle(isError ? .red : .primary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+            } footer: {
+                VStack(spacing: 10) {
+                    Link(destination: URL(string: "https://buymeacoffee.com/michaellorendiaz")!) {
+                        Label("Buy me a coffee", systemImage: "cup.and.saucer.fill")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 24).padding(.vertical, 10)
+                            .background(Color(red: 1, green: 0.867, blue: 0), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    HStack(spacing: 4) {
+                        Text("AppleLook \(Bundle.main.shortVersion) ·")
+                        Link("GitHub", destination: Updates.repoURL)
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 12)
             }
         }
         .formStyle(.grouped)

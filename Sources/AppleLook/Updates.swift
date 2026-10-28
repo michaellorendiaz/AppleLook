@@ -7,6 +7,7 @@ import Foundation
 @MainActor
 final class Updates: ObservableObject {
     static let repo = "michaellorendiaz/AppleLook"
+    static let repoURL = URL(string: "https://github.com/\(repo)")!
     static let downloadURL = URL(string: "https://github.com/\(repo)/releases/latest/download/AppleLook.zip")!
     static let releasesURL = URL(string: "https://github.com/\(repo)/releases/latest")!
 
