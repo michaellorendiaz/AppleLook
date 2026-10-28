@@ -15,6 +15,7 @@
   <img src="https://img.shields.io/badge/Apple%20Silicon%20%2B%20Intel-universal-555555" alt="Apple Silicon and Intel">
   <img src="https://img.shields.io/badge/Linux-Docker-2496ED?logo=docker&logoColor=white" alt="Linux with Docker">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+  <a href="https://buymeacoffee.com/michaellorendiaz"><img src="https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black" alt="Buy me a coffee"></a>
 </p>
 
 > **Never used GitHub?** On a Mac, click the green **Download AppleLook** button above, then follow [Install the Mac app](#install-the-mac-app). You don't need a GitHub account.
@@ -231,3 +232,5 @@ AppleLook grew out of [outlook-icloud-bridge](https://github.com/michaellorendia
 ## License
 
 MIT
+
+AppleLook is free. If it saves your family some "are you in a meeting?" texts, you can [buy me a coffee](https://buymeacoffee.com/michaellorendiaz).
