@@ -99,7 +99,7 @@
     <input type="text" id="exclude_keywords" name="exclude_keywords" value="{{ cfg.exclude_keywords | join(', ') }}" placeholder="Focus time, Lunch">
     <p class="hint">Separate words with commas. Not case-sensitive.</p>
 
-    <h3 class="sub">A different title for some meetings</h3>
+    <h3 class="sub">Alternate Event Titles</h3>
     <label class="field" for="alt_label_keywords">For events that contain the keyword</label>
     <input type="text" id="alt_label_keywords" name="alt_label_keywords" value="{{ cfg.alt_label_keywords | join(', ') }}" placeholder="Enter keyword(s)" autocomplete="off" spellcheck="false">
     <p class="hint">Matches the exact word, including capitalization: “ART” matches “ART show” and “ART123”, but not “Art show” or “PARTY”. Separate several keywords with commas.</p>

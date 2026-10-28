@@ -61,7 +61,7 @@ The Mac app and the server name events the same way. **Event title** is a templa
 
 **Show the label** and **Show meeting titles** add or remove `{label}` and `{event}` for you. If a variable is empty, it's taken out along with any brackets or separators left around it, so `{label} ({event})` with no label gives just "Budget review".
 
-**A different title for some meetings** (under **Advanced**): meetings whose title contains a keyword get an alternative label, and optionally their own event title, where `{altlabel}` is the alternative label. For example, keyword `ART` and alternative label `Teaching` turn "ART 120 Drawing" into "Teaching (ART 120 Drawing)" while other meetings stay "Work (…)". The keyword has to match the exact word, capitalization included, and a number may follow it: `ART` matches "ART 120", "ART123" and "Critique (ART 209)", but not "Art show", "PARTY" or "ARTS". Separate several keywords with commas.
+**Alternate Event Titles** (under **Advanced**): meetings whose title contains a keyword get an alternative label, and optionally their own event title, where `{altlabel}` is the alternative label. For example, keyword `ART` and alternative label `Teaching` turn "ART 120 Drawing" into "Teaching (ART 120 Drawing)" while other meetings stay "Work (…)". The keyword has to match the exact word, capitalization included, and a number may follow it: `ART` matches "ART 120", "ART123" and "Critique (ART 209)", but not "Art show", "PARTY" or "ARTS". Separate several keywords with commas.
 
 Settings saved by an older version keep the titles they had.
 
