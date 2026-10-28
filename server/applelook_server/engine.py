@@ -172,9 +172,10 @@ def render_title(template, label, event, altlabel=""):
 
 
 def alt_rule_applies(title, cfg):
-    """Whether a word in the title starts with one of the alternative keywords,
-    matching case ("ART 120", "ARTshow" yes; "Art show", "PARTY" no)."""
-    return any(k and re.search(rf"(?<!\w){re.escape(k)}", title)
+    """Whether the title contains one of the alternative keywords as a word,
+    matching case; a number may follow it, as in a course code ("ART 120", "ART120"
+    yes; "Art show", "PARTY", "ARTS" no)."""
+    return any(k and re.search(rf"(?<!\w){re.escape(k)}(?![^\W\d])", title)
                for k in cfg.get("alt_label_keywords") or [])
 
 

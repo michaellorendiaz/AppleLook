@@ -186,12 +186,10 @@ class AltLabelTests(unittest.TestCase):
         self.assertEqual(engine.event_summary("ART 120 Drawing I", self.cfg), "Teaching (ART 120 Drawing I)")
         self.assertEqual(engine.event_summary("Studio: ART209", self.cfg), "Teaching (Studio: ART209)",
                          "a course number may follow")
-        self.assertEqual(engine.event_summary("ARTshow", self.cfg), "Teaching (ARTshow)",
-                         "letters may follow too")
         self.assertEqual(engine.event_summary("Budget review", self.cfg), "Work (Budget review)")
 
-    def test_case_sensitive_start_of_word(self):
-        for title in ("Art show", "art 120", "PARTY planning", "DEPARTMENT meeting", "Artshow"):
+    def test_case_sensitive_whole_word(self):
+        for title in ("Art show", "art 120", "PARTY planning", "DEPARTMENT meeting", "ARTS council", "ARTshow"):
             self.assertFalse(engine.alt_rule_applies(title, self.cfg), title)
         self.assertTrue(engine.alt_rule_applies("Critique (ART 209)", self.cfg))
 
