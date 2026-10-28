@@ -155,6 +155,8 @@ def settings_from_form(f, cfg):
         cfg["include_titles"] = "{event}" in cfg["title_format"]
     else:
         cfg["title_format"] = None  # built from label and include_titles
+    cfg["alt_label_keywords"] = [k.strip() for k in f.get("alt_label_keywords", "").split(",") if k.strip()]
+    cfg["alt_label"] = f.get("alt_label", "").strip()
     cfg["exclude_keywords"] = [k.strip() for k in f.get("exclude_keywords", "").split(",") if k.strip()]
     # Event IDs are made unique to the calendar so iCloud doesn't refuse them (412) when
     # another calendar on the account has the same meetings. A calendar keeps the IDs it
@@ -252,7 +254,9 @@ def create_app():
             calendars=calendars, calendar_error=calendar_error, complete=saved_complete,
             status=status, preview=preview, saved_calendar=cfg["target_calendar"],
             title_format=engine.title_format(form_cfg),
-            example=engine.event_summary("Budget review", form_cfg))
+            example=engine.event_summary("Budget review", form_cfg),
+            alt_example=(engine.event_summary(form_cfg["alt_label_keywords"][0] + " 120", form_cfg)
+                         if form_cfg["alt_label_keywords"] else ""))
 
     @app.post("/save")
     def save():

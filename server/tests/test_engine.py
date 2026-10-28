@@ -178,6 +178,31 @@ class TitleTemplateTests(unittest.TestCase):
         self.assertEqual(set(summaries(engine.build_desired(Calendar.from_ical(FEED), cfg, now=NOW))), {"Work"})
 
 
+class AltLabelTests(unittest.TestCase):
+    cfg = dict(engine.DEFAULTS, label="Work", include_titles=True,
+               alt_label_keywords=["ART"], alt_label="Teaching")
+
+    def test_keyword_switches_the_label(self):
+        self.assertEqual(engine.event_summary("ART 120 Drawing I", self.cfg), "Teaching (ART 120 Drawing I)")
+        self.assertEqual(engine.event_summary("Studio: ART209", self.cfg), "Teaching (Studio: ART209)",
+                         "a course number may follow")
+        self.assertEqual(engine.event_summary("Budget review", self.cfg), "Work (Budget review)")
+
+    def test_case_sensitive_whole_word(self):
+        for title in ("Art show", "art 120", "PARTY planning", "DEPARTMENT meeting", "ARTS council"):
+            self.assertEqual(engine.label_for(title, self.cfg), "Work", title)
+        self.assertEqual(engine.label_for("Critique (ART 209)", self.cfg), "Teaching")
+
+    def test_several_keywords_and_no_titles(self):
+        cfg = dict(self.cfg, alt_label_keywords=["ART", "DES"], title_format="{label}")
+        self.assertEqual(engine.event_summary("DES 101", cfg), "Teaching")
+        self.assertEqual(engine.event_summary("Faculty meeting", cfg), "Work")
+
+    def test_no_keywords_changes_nothing(self):
+        cfg = dict(self.cfg, alt_label_keywords=[])
+        self.assertEqual(engine.event_summary("ART 120", cfg), "Work (ART 120)")
+
+
 class ServerAdditionsTests(unittest.TestCase):
     def test_free_toggle(self):
         d = desired(include_titles=True, label="", include_free=True)

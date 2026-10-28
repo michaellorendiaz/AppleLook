@@ -134,6 +134,14 @@ class SettingsTests(unittest.TestCase):
         self.save(label="Work", title_format="{label}", include_titles="on")
         self.assertFalse(settings()["include_titles"], "the template wins over the checkbox")
 
+    def test_alternative_label_is_saved(self):
+        page = self.save(label="Work", title_format="{label} ({event})",
+                         alt_label_keywords="ART, DES", alt_label="Teaching")
+        cfg = json.loads((self.store.DATA / "settings.json").read_text())
+        self.assertEqual((cfg["alt_label_keywords"], cfg["alt_label"]), (["ART", "DES"], "Teaching"))
+        self.assertIn('value="ART, DES"', page)
+        self.assertIn("Teaching (ART 120)", page)
+
     def test_old_settings_show_the_matching_template(self):
         self.store.save_settings({**self.store.load_settings(), "label": "Work", "include_titles": True})
         page = self.c.get("/").get_data(as_text=True)

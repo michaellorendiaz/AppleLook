@@ -27,6 +27,8 @@ DEFAULTS = {
     "label": "Work",
     "include_titles": False,
     "title_format": None,   # e.g. "{label} ({event})"; None = built from label/include_titles
+    "alt_label_keywords": [],  # meetings whose title has one of these words...
+    "alt_label": "",           # ...use this label instead (e.g. "ART" -> "Teaching")
     "include_location": False,
     "online_as_remote": True,
     "include_tentative": True,
@@ -166,10 +168,20 @@ def render_title(template, label, event):
     return s if s.strip() else "Busy"
 
 
+def label_for(title, cfg):
+    """The alternative label when the title contains one of its keywords as a word,
+    matching case; a number may follow it, as in a course code ("ART 120", "ART120"
+    yes; "Art show", "PARTY", "ARTS" no). Otherwise the label."""
+    for k in cfg.get("alt_label_keywords") or []:
+        if k and re.search(rf"(?<!\w){re.escape(k)}(?![^\W\d])", title):
+            return cfg.get("alt_label") or ""
+    return cfg.get("label") or ""
+
+
 def event_summary(title, cfg):
     """The event title others see, from the title template."""
     template = title_format(cfg)
-    return render_title(template, cfg.get("label") or "", title if "{event}" in template else "")
+    return render_title(template, label_for(title, cfg), title if "{event}" in template else "")
 
 
 def excluded(title, cfg):
