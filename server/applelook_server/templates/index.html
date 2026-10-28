@@ -83,8 +83,8 @@
   <label class="field" for="title_format">Event title</label>
   <input type="text" id="title_format" name="title_format" value="{{ title_format }}" placeholder="Busy" autocomplete="off" spellcheck="false">
   <p class="hint"><code>{label}</code> is the label above and <code>{event}</code> is the meeting’s title. Type anything around them, like <code>{label}: {event}</code> or <code>{event} ({label})</code>. Left empty, events show as “Busy”.</p>
-  <label class="check"><input type="checkbox" name="show_label" data-token="{label}" {% if '{label}' in title_format %}checked{% endif %}> Show the label</label>
-  <label class="check"><input type="checkbox" name="include_titles" data-token="{event}" {% if '{event}' in title_format %}checked{% endif %}> Show meeting titles</label>
+  <label class="check"><input type="checkbox" name="show_label" data-for="title_format" data-token="{label}" {% if '{label}' in title_format %}checked{% endif %}> Show the label</label>
+  <label class="check"><input type="checkbox" name="include_titles" data-for="title_format" data-token="{event}" {% if '{event}' in title_format %}checked{% endif %}> Show meeting titles</label>
   <label class="check"><input type="checkbox" name="include_location" {% if cfg.include_location %}checked{% endif %}> Show locations (online meetings show as “Remote”)</label>
   <label class="check"><input type="checkbox" name="include_tentative" {% if cfg.include_tentative %}checked{% endif %}> Include meetings marked Tentative</label>
   <label class="check"><input type="checkbox" name="include_free" {% if cfg.include_free %}checked{% endif %}> Include meetings marked Free</label>
@@ -101,13 +101,15 @@
 
     <h3 class="sub">A different title for some meetings</h3>
     <label class="field" for="alt_label_keywords">For events that contain the keyword</label>
-    <input type="text" id="alt_label_keywords" name="alt_label_keywords" value="{{ cfg.alt_label_keywords | join(', ') }}" placeholder="ART" autocomplete="off" spellcheck="false">
+    <input type="text" id="alt_label_keywords" name="alt_label_keywords" value="{{ cfg.alt_label_keywords | join(', ') }}" placeholder="Enter keyword(s)" autocomplete="off" spellcheck="false">
     <p class="hint">Matches the word with the same capitalization: “ART” matches “ART 120” and “ART120”, but not “Art show” or “PARTY”. Separate several keywords with commas.</p>
     <label class="field" for="alt_label">use the alternative label</label>
     <input type="text" id="alt_label" name="alt_label" value="{{ cfg.alt_label }}" placeholder="Teaching">
     <label class="field" for="alt_title_format">and this event title</label>
     <input type="text" id="alt_title_format" name="alt_title_format" value="{{ cfg.alt_title_format }}" placeholder="Same as above" autocomplete="off" spellcheck="false">
     <p class="hint">Uses <code>{label}</code> (the alternative label) and <code>{event}</code> like the event title above. Leave it empty to use that one.</p>
+    <label class="check"><input type="checkbox" data-for="alt_title_format" data-token="{label}" {% if '{label}' in cfg.alt_title_format %}checked{% endif %}> Show the alternative label</label>
+    <label class="check"><input type="checkbox" data-for="alt_title_format" data-token="{event}" {% if '{event}' in cfg.alt_title_format %}checked{% endif %}> Show meeting titles</label>
     <p class="hint" id="alt_example_wrap" {% if not alt_example %}hidden{% endif %}>Example: <strong id="alt_example">{{ alt_example }}</strong></p>
   </details>
 </div>
@@ -194,13 +196,16 @@
     document.getElementById("alt_example_wrap").hidden = !k;
     if (k) document.getElementById("alt_example").textContent = summary(`${k} 120`);
   }
+  // each checkbox adds or removes its variable in the title box it belongs to
   boxes.forEach(box => box.addEventListener("change", () => {
-    const tok = box.dataset.token;
-    if (box.checked && !fmt.value.includes(tok)) fmt.value = addToken(fmt.value, tok);
-    if (!box.checked) fmt.value = tidy(fmt.value.split(tok).join(""));
+    const tok = box.dataset.token, field = form[box.dataset.for];
+    if (box.checked && !field.value.includes(tok)) field.value = addToken(field.value, tok);
+    if (!box.checked) field.value = tidy(field.value.split(tok).join(""));
     example();
   }));
-  fmt.addEventListener("input", () => boxes.forEach(box => { box.checked = fmt.value.includes(box.dataset.token); }));
+  [fmt, form.alt_title_format].forEach(field => field.addEventListener("input", () =>
+    boxes.filter(box => box.dataset.for === field.name)
+         .forEach(box => { box.checked = field.value.includes(box.dataset.token); })));
   form.addEventListener("input", example);
 </script>
 {% endblock %}

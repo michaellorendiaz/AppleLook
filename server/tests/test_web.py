@@ -118,7 +118,7 @@ class SettingsTests(unittest.TestCase):
                 "target_calendar": "Family", "label": "Work", "include_titles": "on",
                 "skip_multiday_allday": "on"}).get_data(as_text=True)
         self.assertIn("A sync would add 0", page)
-        self.assertRegex(page, r'name="include_titles" data-token="\{event\}" checked')
+        self.assertRegex(page, r'name="include_titles" data-for="title_format" data-token="\{event\}" checked')
         self.assertRegex(page, r'name="skip_multiday_allday" checked')
         self.assertNotIn('name="takeover"', page)
         self.assertRegex(page, r'value="Family" selected')
@@ -129,7 +129,7 @@ class SettingsTests(unittest.TestCase):
         page = self.save(label="Work", title_format="{event}   ({label})")
         self.assertEqual(settings()["title_format"], "{event} ({label})")
         self.assertTrue(settings()["include_titles"], "{event} in the template means titles are on")
-        self.assertRegex(page, r'name="include_titles" data-token="\{event\}" checked')
+        self.assertRegex(page, r'name="include_titles" data-for="title_format" data-token="\{event\}" checked')
         self.assertIn("Budget review (Work)", page)
         self.save(label="Work", title_format="{label}", include_titles="on")
         self.assertFalse(settings()["include_titles"], "the template wins over the checkbox")
@@ -146,6 +146,13 @@ class SettingsTests(unittest.TestCase):
                   alt_label="Teaching", alt_title_format="{event}  ({label})")
         cfg = json.loads((self.store.DATA / "settings.json").read_text())
         self.assertEqual(cfg["alt_title_format"], "{event} ({label})")
+
+    def test_alternative_title_checkboxes(self):
+        page = self.save(label="Work", title_format="{label}", alt_label_keywords="ART",
+                         alt_label="Teaching", alt_title_format="{event}")
+        self.assertRegex(page, r'data-for="alt_title_format" data-token="\{event\}" checked')
+        self.assertNotRegex(page, r'data-for="alt_title_format" data-token="\{label\}" checked')
+        self.assertIn('placeholder="Enter keyword(s)"', page)
 
     def test_old_settings_show_the_matching_template(self):
         self.store.save_settings({**self.store.load_settings(), "label": "Work", "include_titles": True})
