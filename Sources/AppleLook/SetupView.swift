@@ -13,6 +13,10 @@ struct SetupView: View {
     @State private var working = false
     @State private var confirmRemove = false
     @State private var newCalendarName = "AppleLook"
+    // Keyword lists are edited as text, so typing "ART, " doesn't lose the comma
+    @State private var skipKeywords = AppModel.shared.settings.options.excludeKeywords.joined(separator: ", ")
+    @State private var altKeywords = AppModel.shared.settings.options.altLabelKeywords.joined(separator: ", ")
+    @State private var showAdvanced = !AppModel.shared.settings.options.altLabelKeywords.isEmpty
 
     var body: some View {
         Form {
@@ -65,12 +69,49 @@ struct SetupView: View {
 
             Section("3. What others will see") {
                 TextField("Label", text: $draft.options.label)
-                Toggle("Show meeting titles", isOn: $draft.options.includeTitles)
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("Event title", text: $draft.options.titleTemplate, prompt: Text("Busy"))
+                    Text("`{label}` is the label above and `{event}` is the meeting's title. Type anything around them, like `{label}: {event}` or `{event} ({label})`. Left empty, events show as \"Busy\".")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Toggle("Show the label", isOn: variable("{label}", in: \.titleTemplate))
+                Toggle("Show meeting titles", isOn: variable("{event}", in: \.titleTemplate))
                 Toggle("Show locations (online meetings show as \"Remote\")", isOn: $draft.options.includeLocation)
                 Toggle("Include meetings marked Tentative", isOn: $draft.options.includeTentative)
                 Toggle("Include meetings marked Free", isOn: $draft.options.includeFree)
                 Toggle("Skip multi-day all-day events (room bookings, trips)", isOn: $draft.options.skipMultidayAllDay)
                 LabeledContent("Example", value: Feed.summary(title: "Budget review", options: draft.options))
+            }
+
+            Section {
+                DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        TextField("Skip meetings whose title contains",
+                                  text: keywordList($skipKeywords, into: \.excludeKeywords),
+                                  prompt: Text("Focus time, Lunch"))
+                        hint("Separate words with commas. Not case-sensitive.")
+                    }
+
+                    Text("A different title for some meetings").font(.headline)
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+                    VStack(alignment: .leading, spacing: 6) {
+                        TextField("For events that contain the keyword",
+                                  text: keywordList($altKeywords, into: \.altLabelKeywords),
+                                  prompt: Text("Enter keyword(s)"))
+                        hint("Matches the exact word, including capitalization: \"ART\" matches \"ART show\" and \"ART123\", but not \"Art show\" or \"PARTY\". Separate several keywords with commas.")
+                    }
+                    TextField("use the alternative label", text: $draft.options.altLabel, prompt: Text("Teaching"))
+                    VStack(alignment: .leading, spacing: 6) {
+                        TextField("and this event title", text: $draft.options.altTitleFormat, prompt: Text("Same as above"))
+                        hint("`{altlabel}` is the alternative label above; `{event}` and `{label}` work as in the event title above. Leave it empty to use that one.")
+                    }
+                    Toggle("Show the alternative label", isOn: variable("{altlabel}", in: \.altTitleFormat))
+                    Toggle("Show meeting titles", isOn: variable("{event}", in: \.altTitleFormat))
+                    if let keyword = draft.options.altLabelKeywords.first {
+                        LabeledContent("Example", value: Feed.summary(title: "\(keyword) 120", options: draft.options))
+                    }
+                }
             }
 
             Section {
@@ -120,12 +161,44 @@ struct SetupView: View {
         }
         .formStyle(.grouped)
         .frame(minWidth: 560, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity)
-        .onAppear(perform: loadCalendars)
+        .onAppear {
+            // Settings from before 0.3.0 have no template yet; pin the one they had, so
+            // clearing the label doesn't quietly switch it
+            if draft.options.titleFormat == nil { draft.options.titleFormat = draft.options.titleTemplate }
+            loadCalendars()
+        }
         .confirmationDialog("Remove every event AppleLook added to this calendar?", isPresented: $confirmRemove) {
             Button("Remove Events", role: .destructive) { removeEvents() }
         } message: {
             Text("Your own events are not touched. Syncing again will add them back.")
         }
+    }
+
+    private func hint(_ text: LocalizedStringKey) -> some View {
+        Text(text).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// A toggle for one variable in a title template: turning it on adds the variable,
+    /// turning it off takes it out and tidies; typing the variable ticks it. Same as the
+    /// checkboxes on the server's page.
+    private func variable(_ token: String, in field: WritableKeyPath<SyncOptions, String>) -> Binding<Bool> {
+        Binding(
+            get: { draft.options[keyPath: field].contains(token) },
+            set: { on in
+                let t = draft.options[keyPath: field]
+                if on && !t.contains(token) { draft.options[keyPath: field] = Feed.addingVariable(token, to: t) }
+                if !on { draft.options[keyPath: field] = Feed.tidyTemplate(t.replacingOccurrences(of: token, with: "")) }
+            })
+    }
+
+    private func keywordList(_ text: Binding<String>, into field: WritableKeyPath<SyncOptions, [String]>) -> Binding<String> {
+        Binding(
+            get: { text.wrappedValue },
+            set: {
+                text.wrappedValue = $0
+                draft.options[keyPath: field] = $0.split(separator: ",")
+                    .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            })
     }
 
     private var canSave: Bool { !draft.feedURL.isEmpty && !draft.calendarID.isEmpty && hasAccess }

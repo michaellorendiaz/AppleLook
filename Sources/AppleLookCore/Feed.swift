@@ -4,7 +4,18 @@ import Foundation
 /// What gets copied and how it's labelled. Defaults match bridge.py's.
 public struct SyncOptions: Codable, Equatable, Sendable {
     public var label = "Busy"
+    /// Whether titles are shown. Kept in step with titleFormat once that's set.
     public var includeTitles = false
+    /// The event title, with {label}, {altlabel} and {event} filled in. nil in settings saved
+    /// before 0.3.0; titleTemplate then gives the template that reproduces their old titles.
+    public var titleFormat: String? {
+        didSet { if let titleFormat { includeTitles = titleFormat.contains("{event}") } }
+    }
+    /// Meetings whose title contains one of these words use altLabel, and altTitleFormat
+    /// if it's set ("ART" -> "Teaching").
+    public var altLabelKeywords: [String] = []
+    public var altLabel = ""
+    public var altTitleFormat = ""
     public var includeLocation = false
     public var onlineAsRemote = true
     public var includeTentative = true
@@ -24,6 +35,10 @@ public struct SyncOptions: Codable, Equatable, Sendable {
         let d = SyncOptions()
         label = try c.decodeIfPresent(String.self, forKey: .label) ?? d.label
         includeTitles = try c.decodeIfPresent(Bool.self, forKey: .includeTitles) ?? d.includeTitles
+        titleFormat = try c.decodeIfPresent(String.self, forKey: .titleFormat) ?? d.titleFormat
+        altLabelKeywords = try c.decodeIfPresent([String].self, forKey: .altLabelKeywords) ?? d.altLabelKeywords
+        altLabel = try c.decodeIfPresent(String.self, forKey: .altLabel) ?? d.altLabel
+        altTitleFormat = try c.decodeIfPresent(String.self, forKey: .altTitleFormat) ?? d.altTitleFormat
         includeLocation = try c.decodeIfPresent(Bool.self, forKey: .includeLocation) ?? d.includeLocation
         onlineAsRemote = try c.decodeIfPresent(Bool.self, forKey: .onlineAsRemote) ?? d.onlineAsRemote
         includeTentative = try c.decodeIfPresent(Bool.self, forKey: .includeTentative) ?? d.includeTentative
@@ -32,6 +47,18 @@ public struct SyncOptions: Codable, Equatable, Sendable {
         excludeKeywords = try c.decodeIfPresent([String].self, forKey: .excludeKeywords) ?? d.excludeKeywords
         windowBackDays = try c.decodeIfPresent(Int.self, forKey: .windowBackDays) ?? d.windowBackDays
         windowForwardDays = try c.decodeIfPresent(Int.self, forKey: .windowForwardDays) ?? d.windowForwardDays
+    }
+
+    /// The title template in effect. Settings saved before templates existed get the one
+    /// that reproduces their old titles exactly. Setting it sets titleFormat.
+    public var titleTemplate: String {
+        get {
+            if let titleFormat { return titleFormat }
+            let hasLabel = !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            if includeTitles { return hasLabel ? "{label} ({event})" : "{event}" }
+            return hasLabel ? "{label}" : ""
+        }
+        set { titleFormat = newValue }
     }
 }
 
@@ -185,13 +212,79 @@ public enum Feed {
         return loc
     }
 
-    /// "Label (Title)", "Label", or just "Title" when the label is empty.
+    /// The event title others see: the title template, or for meetings matching an
+    /// alternative keyword, its own template, where {altlabel} is the alternative label.
+    /// With no template of its own, the alternative label takes the place of the label
+    /// in the usual one. Same as the server's engine.event_summary.
     public static func summary(title: String, options o: SyncOptions) -> String {
-        let label = o.label.trimmingCharacters(in: .whitespaces)
-        let shown = o.includeTitles ? title : ""
-        if !label.isEmpty && !shown.isEmpty { return "\(label) (\(shown))" }
-        if !label.isEmpty { return label }
-        return shown.isEmpty ? "Busy" : shown
+        var template = o.titleTemplate
+        var label = o.label
+        if altRuleApplies(title: title, options: o) {
+            if !o.altTitleFormat.isEmpty {
+                template = o.altTitleFormat
+            } else {
+                label = o.altLabel
+            }
+        }
+        return renderTitle(template, label: label, event: template.contains("{event}") ? title : "",
+                           altLabel: o.altLabel)
+    }
+
+    /// Whether the title contains one of the alternative keywords as a word, matching case.
+    /// A number may follow it, as in a course code: "ART 120" and "ART120" yes; "Art show",
+    /// "PARTY" and "ARTS" no.
+    public static func altRuleApplies(title: String, options o: SyncOptions) -> Bool {
+        o.altLabelKeywords.contains { k in
+            !k.isEmpty && title.range(of: "(?<![\\p{L}\\p{N}_])\(NSRegularExpression.escapedPattern(for: k))(?![\\p{L}_])",
+                                      options: .regularExpression) != nil
+        }
+    }
+
+    /// Fill {label}, {altlabel} and {event}. An empty one is taken out of the template
+    /// first, so "{label} ({event})" with no title gives "Work", not "Work ()". The meeting
+    /// title itself is never trimmed or changed.
+    public static func renderTitle(_ template: String, label: String, event: String, altLabel: String = "") -> String {
+        let values = [("{label}", label.trimmingCharacters(in: .whitespacesAndNewlines)),
+                      ("{altlabel}", altLabel.trimmingCharacters(in: .whitespacesAndNewlines)),
+                      ("{event}", event)]
+        var t = template
+        let empty = values.filter { t.contains($0.0) && $0.1.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if !empty.isEmpty {
+            for (token, _) in empty { t = t.replacingOccurrences(of: token, with: "") }
+            t = tidyTemplate(t)
+        }
+        for (token, value) in values { t = t.replacingOccurrences(of: token, with: value) }
+        return t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Busy" : t
+    }
+
+    /// What the settings toggles do when they add a variable: into an empty template just the
+    /// variable, next to a lone variable "{label} ({event})", otherwise {event} at the end and
+    /// a label at the start. Same as the server page's addToken.
+    public static func addingVariable(_ token: String, to template: String) -> String {
+        let t = template.trimmingCharacters(in: .whitespacesAndNewlines)
+        if t.isEmpty { return token }
+        if t.range(of: #"^\{\w+\}$"#, options: .regularExpression) != nil {
+            return token == "{event}" ? "\(t) (\(token))" : "\(token) (\(t))"
+        }
+        return token == "{event}" ? "\(t) \(token)" : "\(token) \(t)"
+    }
+
+    static let separators: Set<Character> = [" ", "\t", ":", ";", ",", ".", "|", "/", "\\", "-", "\u{2013}", "\u{2014}", "\u{00B7}"]
+
+    /// Clean up a template after an empty variable was taken out of it: empty brackets,
+    /// separators left at either end, or brackets around everything.
+    public static func tidyTemplate(_ template: String) -> String {
+        func trimmed(_ s: Substring) -> String {
+            String(s.drop { separators.contains($0) }.reversed().drop { separators.contains($0) }.reversed())
+        }
+        var t = template.replacingOccurrences(of: #"\(\s*\)|\[\s*\]|\{\s*\}"#, with: "", options: .regularExpression)
+        t = trimmed(Substring(t.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)))
+        if t.count >= 2, let first = t.first, let last = t.last,
+           (first == "(" && last == ")") || (first == "[" && last == "]") {
+            let inner = t.dropFirst().dropLast()
+            if !inner.contains(where: { "()[]".contains($0) }) { t = trimmed(inner) }
+        }
+        return t
     }
 
     /// Same hash as bridge.py's stable_uid (without its salt, prefix and suffix),

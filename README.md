@@ -47,6 +47,24 @@ Both versions start from this link.
 
 > Treat this link like a password: anyone who has it can see your calendar. If it ever leaks, click **Reset links** on the same screen and paste the new link into AppleLook.
 
+## Event titles
+
+The Mac app and the server name events the same way. **Event title** is a template: `{label}` is your label and `{event}` is the meeting's title, and you can type anything around them.
+
+| Event title | A meeting called "Budget review" shows as |
+|---|---|
+| `{label}` | Work |
+| `{label} ({event})` | Work (Budget review) |
+| `{label}: {event}` | Work: Budget review |
+| `{event}` | Budget review |
+| *(empty)* | Busy |
+
+**Show the label** and **Show meeting titles** add or remove `{label}` and `{event}` for you. If a variable is empty, it's taken out along with any brackets or separators left around it, so `{label} ({event})` with no label gives just "Budget review".
+
+**A different title for some meetings** (under **Advanced**): meetings whose title contains a keyword get an alternative label, and optionally their own event title, where `{altlabel}` is the alternative label. For example, keyword `ART` and alternative label `Teaching` turn "ART 120 Drawing" into "Teaching (ART 120 Drawing)" while other meetings stay "Work (…)". The keyword has to match the exact word, capitalization included, and a number may follow it: `ART` matches "ART 120", "ART123" and "Critique (ART 209)", but not "Art show", "PARTY" or "ARTS". Separate several keywords with commas.
+
+Settings saved by an older version keep the titles they had.
+
 ## Mac version (menu-bar app)
 
 ### What you need
@@ -72,7 +90,7 @@ A settings window opens the first time:
 1. Paste your Outlook link.
 2. Click **Allow Calendar Access**, then **Allow** in the message that appears.
 3. Choose the calendar to copy into, or type a name and click **Create New Calendar**. A separate calendar is best.
-4. Choose what others will see: a label (like "Work"), whether to show meeting titles and locations, and whether to include meetings marked Tentative or Free.
+4. Choose what others will see: a label (like "Work"), the [event title](#event-titles), locations, and whether to include meetings marked Tentative or Free.
 5. Click **Preview** to check, then **Save and Sync**.
 
 Your meetings appear in that calendar within a minute. To share it, open Calendar, right-click the calendar in the sidebar, and choose **Share Calendar**.
@@ -179,7 +197,7 @@ AppleLook Server does the same job from a Docker container on a machine that's a
 1. From any computer on your home network, open `http://<server-address>:8080` (for example `http://192.168.1.20:8080`) and log in with the password from step 2.
 2. Paste your Outlook link, your Apple ID and the app-specific password.
 3. Choose the iCloud calendar to copy into, or create a new one from the page.
-4. Choose what others will see: a label, meeting titles, locations, and whether to include meetings marked Tentative or Free.
+4. Choose what others will see: a label, the [event title](#event-titles), locations, and whether to include meetings marked Tentative or Free.
 5. Click **Preview** to check what would be added. It saves nothing. Then click **Save and Sync**.
 
 From then on it syncs at :00, :15, :30 and :45. Share the calendar from Calendar on your Mac or iPhone, the same as with the Mac version.
