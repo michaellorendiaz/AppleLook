@@ -155,37 +155,42 @@ def tidy_template(template):
     return t
 
 
-def render_title(template, label, event):
-    """Fill {label} and {event}. An empty one is taken out of the template first,
-    so "{label} ({event})" with no title gives "Work", not "Work ()". The meeting
-    title itself is never trimmed or changed."""
-    values = {"{label}": label.strip(), "{event}": event}
+def render_title(template, label, event, altlabel=""):
+    """Fill {label}, {altlabel} and {event}. An empty one is taken out of the
+    template first, so "{label} ({event})" with no title gives "Work", not
+    "Work ()". The meeting title itself is never trimmed or changed."""
+    values = {"{label}": label.strip(), "{altlabel}": altlabel.strip(), "{event}": event}
     empty = [tok for tok, val in values.items() if tok in template and not val.strip()]
     if empty:
         for tok in empty:
             template = template.replace(tok, "")
         template = tidy_template(template)
-    s = template.replace("{label}", values["{label}"]).replace("{event}", values["{event}"])
+    s = template
+    for tok, val in values.items():
+        s = s.replace(tok, val)
     return s if s.strip() else "Busy"
 
 
 def alt_rule_applies(title, cfg):
-    """Whether the title contains one of the alternative keywords as a word,
-    matching case; a number may follow it, as in a course code ("ART 120", "ART120"
-    yes; "Art show", "PARTY", "ARTS" no)."""
-    return any(k and re.search(rf"(?<!\w){re.escape(k)}(?![^\W\d])", title)
+    """Whether a word in the title starts with one of the alternative keywords,
+    matching case ("ART 120", "ARTshow" yes; "Art show", "PARTY" no)."""
+    return any(k and re.search(rf"(?<!\w){re.escape(k)}", title)
                for k in cfg.get("alt_label_keywords") or [])
 
 
 def event_summary(title, cfg):
     """The event title others see: the title template, or for meetings matching an
-    alternative keyword, the alternative label and (if set) its own template."""
+    alternative keyword, its own template, where {altlabel} is the alternative
+    label. With no template of its own, the alternative label takes the place
+    of the label in the usual one."""
+    label, altlabel = cfg.get("label") or "", cfg.get("alt_label") or ""
+    template = title_format(cfg)
     if alt_rule_applies(title, cfg):
-        label = cfg.get("alt_label") or ""
-        template = cfg.get("alt_title_format") or title_format(cfg)
-    else:
-        label, template = cfg.get("label") or "", title_format(cfg)
-    return render_title(template, label, title if "{event}" in template else "")
+        if cfg.get("alt_title_format"):
+            template = cfg["alt_title_format"]
+        else:
+            label = altlabel
+    return render_title(template, label, title if "{event}" in template else "", altlabel)
 
 
 def excluded(title, cfg):

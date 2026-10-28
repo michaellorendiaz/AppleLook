@@ -186,10 +186,12 @@ class AltLabelTests(unittest.TestCase):
         self.assertEqual(engine.event_summary("ART 120 Drawing I", self.cfg), "Teaching (ART 120 Drawing I)")
         self.assertEqual(engine.event_summary("Studio: ART209", self.cfg), "Teaching (Studio: ART209)",
                          "a course number may follow")
+        self.assertEqual(engine.event_summary("ARTshow", self.cfg), "Teaching (ARTshow)",
+                         "letters may follow too")
         self.assertEqual(engine.event_summary("Budget review", self.cfg), "Work (Budget review)")
 
-    def test_case_sensitive_whole_word(self):
-        for title in ("Art show", "art 120", "PARTY planning", "DEPARTMENT meeting", "ARTS council"):
+    def test_case_sensitive_start_of_word(self):
+        for title in ("Art show", "art 120", "PARTY planning", "DEPARTMENT meeting", "Artshow"):
             self.assertFalse(engine.alt_rule_applies(title, self.cfg), title)
         self.assertTrue(engine.alt_rule_applies("Critique (ART 209)", self.cfg))
 
@@ -199,7 +201,7 @@ class AltLabelTests(unittest.TestCase):
         self.assertEqual(engine.event_summary("Faculty meeting", cfg), "Work")
 
     def test_its_own_event_title(self):
-        cfg = dict(self.cfg, alt_title_format="{event} ({label})")
+        cfg = dict(self.cfg, alt_title_format="{event} ({altlabel})")
         self.assertEqual(engine.event_summary("ART 120", cfg), "ART 120 (Teaching)")
         self.assertEqual(engine.event_summary("Budget review", cfg), "Work (Budget review)",
                          "other meetings keep the usual title")
@@ -207,6 +209,13 @@ class AltLabelTests(unittest.TestCase):
         self.assertEqual(engine.event_summary("ART 209", cfg), "Class: ART 209",
                          "the rule can show titles even when others don't")
         self.assertEqual(engine.event_summary("Budget review", cfg), "Work")
+
+    def test_both_labels(self):
+        cfg = dict(self.cfg, alt_title_format="{altlabel} · {label}")
+        self.assertEqual(engine.event_summary("ART 120", cfg), "Teaching · Work",
+                         "{label} stays the usual label in the rule's own title")
+        cfg = dict(self.cfg, alt_label="", alt_title_format="{altlabel}: {event}")
+        self.assertEqual(engine.event_summary("ART 120", cfg), "ART 120", "an empty one is taken out")
 
     def test_no_keywords_changes_nothing(self):
         cfg = dict(self.cfg, alt_label_keywords=[])

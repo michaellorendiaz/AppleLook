@@ -102,13 +102,13 @@
     <h3 class="sub">A different title for some meetings</h3>
     <label class="field" for="alt_label_keywords">For events that contain the keyword</label>
     <input type="text" id="alt_label_keywords" name="alt_label_keywords" value="{{ cfg.alt_label_keywords | join(', ') }}" placeholder="Enter keyword(s)" autocomplete="off" spellcheck="false">
-    <p class="hint">Matches the word with the same capitalization: “ART” matches “ART 120” and “ART120”, but not “Art show” or “PARTY”. Separate several keywords with commas.</p>
+    <p class="hint">Matches the word with the same capitalization: “ART” matches “ART show” and “ARTshow”, but not “Art show” or “PARTY”. Separate several keywords with commas.</p>
     <label class="field" for="alt_label">use the alternative label</label>
     <input type="text" id="alt_label" name="alt_label" value="{{ cfg.alt_label }}" placeholder="Teaching">
     <label class="field" for="alt_title_format">and this event title</label>
     <input type="text" id="alt_title_format" name="alt_title_format" value="{{ cfg.alt_title_format }}" placeholder="Same as above" autocomplete="off" spellcheck="false">
-    <p class="hint">Uses <code>{label}</code> (the alternative label) and <code>{event}</code> like the event title above. Leave it empty to use that one.</p>
-    <label class="check"><input type="checkbox" data-for="alt_title_format" data-token="{label}" {% if '{label}' in cfg.alt_title_format %}checked{% endif %}> Show the alternative label</label>
+    <p class="hint"><code>{altlabel}</code> is the alternative label above; <code>{event}</code> and <code>{label}</code> work as in the event title above. Leave it empty to use that one.</p>
+    <label class="check"><input type="checkbox" data-for="alt_title_format" data-token="{altlabel}" {% if '{altlabel}' in cfg.alt_title_format %}checked{% endif %}> Show the alternative label</label>
     <label class="check"><input type="checkbox" data-for="alt_title_format" data-token="{event}" {% if '{event}' in cfg.alt_title_format %}checked{% endif %}> Show meeting titles</label>
     <p class="hint" id="alt_example_wrap" {% if not alt_example %}hidden{% endif %}>Example: <strong id="alt_example">{{ alt_example }}</strong></p>
   </details>
@@ -144,7 +144,7 @@
 {% endif %}
 
 <script>
-  // The checkboxes add and remove {label} and {event} in the title template, and
+  // The checkboxes add and remove {label}, {altlabel} and {event} in the title templates, and
   // typing in the template ticks or unticks them. The example mirrors
   // engine.render_title.
   const form = document.getElementById("settings");
@@ -164,31 +164,33 @@
     if (m) { const inner = m[1] ?? m[2]; if (!/[()\[\]]/.test(inner)) t = trimSep(inner); }
     return t;
   }
-  function render(t, label, event) {
-    const values = {"{label}": label.trim(), "{event}": event};
+  function render(t, label, event, altlabel = "") {
+    const values = {"{label}": label.trim(), "{altlabel}": altlabel.trim(), "{event}": event};
     let empty = false;
     for (const tok in values) if (t.includes(tok) && !values[tok].trim()) { t = t.split(tok).join(""); empty = true; }
     if (empty) t = tidy(t);
-    const s = t.split("{label}").join(values["{label}"]).split("{event}").join(values["{event}"]);
+    let s = t;
+    for (const tok in values) s = s.split(tok).join(values[tok]);
     return s.trim() ? s : "Busy";
   }
   function addToken(t, tok) {
     t = t.trim();
     if (!t) return tok;
-    if (t === "{label}" || t === "{event}") return "{label} ({event})";
+    if (/^\{\w+\}$/.test(t)) return tok === "{event}" ? `${t} (${tok})` : `${tok} (${t})`;
     return tok === "{event}" ? `${t} ${tok}` : `${tok} ${t}`;
   }
   function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
   function keywords() { return form.alt_label_keywords.value.split(",").map(k => k.trim()).filter(Boolean); }
   function altApplies(title) {
-    // mirrors engine.alt_rule_applies: a word (a number may follow), same capitalization
-    return keywords().some(k => new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRe(k)}(?![\\p{L}_])`, "u").test(title));
+    // mirrors engine.alt_rule_applies: a word starting with the keyword, same capitalization
+    return keywords().some(k => new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRe(k)}`, "u").test(title));
   }
   function summary(title) {
     // mirrors engine.event_summary
-    const alt = altApplies(title);
-    const t = alt ? (form.alt_title_format.value.trim() || fmt.value) : fmt.value;
-    return render(t, alt ? form.alt_label.value : form.label.value, t.includes("{event}") ? title : "");
+    const own = form.alt_title_format.value.trim(), altlabel = form.alt_label.value;
+    let t = fmt.value, label = form.label.value;
+    if (altApplies(title)) { if (own) t = own; else label = altlabel; }
+    return render(t, label, t.includes("{event}") ? title : "", altlabel);
   }
   function example() {
     document.getElementById("example").textContent = summary("Budget review");

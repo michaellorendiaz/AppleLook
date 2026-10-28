@@ -143,15 +143,15 @@ class SettingsTests(unittest.TestCase):
         self.assertIn("Teaching (ART 120)", page)
         self.assertIn("<details open>", page, "Advanced opens when a rule is set")
         self.save(label="Work", title_format="{label} ({event})", alt_label_keywords="ART",
-                  alt_label="Teaching", alt_title_format="{event}  ({label})")
+                  alt_label="Teaching", alt_title_format="{event}  ({altlabel})")
         cfg = json.loads((self.store.DATA / "settings.json").read_text())
-        self.assertEqual(cfg["alt_title_format"], "{event} ({label})")
+        self.assertEqual(cfg["alt_title_format"], "{event} ({altlabel})")
 
     def test_alternative_title_checkboxes(self):
         page = self.save(label="Work", title_format="{label}", alt_label_keywords="ART",
                          alt_label="Teaching", alt_title_format="{event}")
         self.assertRegex(page, r'data-for="alt_title_format" data-token="\{event\}" checked')
-        self.assertNotRegex(page, r'data-for="alt_title_format" data-token="\{label\}" checked')
+        self.assertNotRegex(page, r'data-for="alt_title_format" data-token="\{altlabel\}" checked')
         self.assertIn('placeholder="Enter keyword(s)"', page)
 
     def test_old_settings_show_the_matching_template(self):

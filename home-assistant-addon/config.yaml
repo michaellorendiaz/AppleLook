@@ -1,5 +1,5 @@
 name: AppleLook
-version: "0.2.0"
+version: "0.3.0"
 slug: applelook
 description: Copy your Outlook calendar into an iCloud calendar you can share with family.
 url: https://github.com/michaellorendiaz/AppleLook/tree/main/server
