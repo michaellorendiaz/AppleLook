@@ -39,6 +39,7 @@ struct SetupView: View {
                     }
                     HStack {
                         TextField("New calendar", text: $newCalendarName).labelsHidden().frame(maxWidth: 200)
+                        Spacer()
                         Button("Create New Calendar") { createCalendar() }
                             .disabled(newCalendarName.trimmingCharacters(in: .whitespaces).isEmpty)
                     }
@@ -84,17 +85,17 @@ struct SetupView: View {
                 LabeledContent("Example", value: Feed.summary(title: "Budget review", options: draft.options))
             }
 
-            Section {
-                DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        TextField("Skip meetings whose title contains",
-                                  text: keywordList($skipKeywords, into: \.excludeKeywords),
-                                  prompt: Text("Focus time, Lunch"))
-                        hint("Separate words with commas. Not case-sensitive.")
-                    }
+            Section("Advanced", isExpanded: $showAdvanced) {
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("Skip meetings whose title contains",
+                              text: keywordList($skipKeywords, into: \.excludeKeywords),
+                              prompt: Text("Focus time, Lunch"))
+                    hint("Separate words with commas. Not case-sensitive.")
+                }
+            }
 
-                    Text("A different title for some meetings").font(.headline)
-                        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 8)
+            if showAdvanced {
+                Section("Alternate Event Titles") {
                     VStack(alignment: .leading, spacing: 6) {
                         TextField("For events that contain the keyword",
                                   text: keywordList($altKeywords, into: \.altLabelKeywords),
