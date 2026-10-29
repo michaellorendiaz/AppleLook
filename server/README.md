@@ -41,7 +41,7 @@ volumes:
 
 Then run `docker compose up -d`, open `http://<this-machine>:8080`, choose a password for the page, and fill in the settings. Choose the password right after starting it: until then, anyone on your network who opens the page could choose it. If port 8080 is taken, change the left number, like `"8090:8080"`.
 
-To update: `docker compose pull && docker compose up -d`. Settings are kept in the `applelook-data` volume. The image runs on Intel and ARM (including Raspberry Pi). To pin a version instead of `latest`, use a tag like `ghcr.io/michaellorendiaz/applelook:0.3.1`.
+To update: `docker compose pull && docker compose up -d`. Settings are kept in the `applelook-data` volume. The image runs on Intel and ARM (including Raspberry Pi). To pin a version instead of `latest`, use a tag like `ghcr.io/michaellorendiaz/applelook:0.3.3`.
 
 Keep the page on your home network. Don't forward port 8080 from your router: it holds your calendar link and iCloud password.
 
