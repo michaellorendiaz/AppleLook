@@ -69,19 +69,17 @@ struct SetupView: View {
             }
 
             Section("3. What others will see") {
-                TextField("Label", text: $draft.options.label)
                 VStack(alignment: .leading, spacing: 6) {
-                    TextField("Event title", text: $draft.options.titleTemplate, prompt: Text("Busy"))
-                    Text("`{label}` is the label above and `{event}` is the meeting's title. Type anything around them, like `{label}: {event}` or `{event} ({label})`. Left empty, events show as \"Busy\".")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    TextField("Event title", text: $draft.options.titleFormat, prompt: Text("Busy"))
+                    hint("`{event}` is the meeting's title. Type anything around it, like `Work: {event}` or `{event} (Work)`. Left empty, events show as \"Busy\".")
                 }
-                Toggle("Show the label", isOn: variable("{label}", in: \.titleTemplate))
-                Toggle("Show meeting titles", isOn: variable("{event}", in: \.titleTemplate))
+                Toggle("Show actual meeting/event titles", isOn: variable("{event}", in: \.titleFormat))
                 Toggle("Show locations (online meetings show as \"Remote\")", isOn: $draft.options.includeLocation)
                 Toggle("Include meetings marked Tentative", isOn: $draft.options.includeTentative)
                 Toggle("Include meetings marked Free", isOn: $draft.options.includeFree)
-                Toggle("Skip multi-day all-day events (room bookings, trips)", isOn: $draft.options.skipMultidayAllDay)
+                // Stored as skipMultidayAllDay; shown the other way round, like the options above it
+                Toggle("Include multi-day all-day events (room bookings, trips)", isOn: Binding(
+                    get: { !draft.options.skipMultidayAllDay }, set: { draft.options.skipMultidayAllDay = !$0 }))
                 LabeledContent("Example", value: Feed.summary(title: "Budget review", options: draft.options))
             }
 
@@ -102,13 +100,11 @@ struct SetupView: View {
                                   prompt: Text("Enter keyword(s)"))
                         hint("Matches the exact word, including capitalization: \"ART\" matches \"ART show\" and \"ART123\", but not \"Art show\" or \"PARTY\". Separate several keywords with commas.")
                     }
-                    TextField("use the alternative label", text: $draft.options.altLabel, prompt: Text("Teaching"))
                     VStack(alignment: .leading, spacing: 6) {
-                        TextField("and this event title", text: $draft.options.altTitleFormat, prompt: Text("Same as above"))
-                        hint("`{altlabel}` is the alternative label above; `{event}` and `{label}` work as in the event title above. Leave it empty to use that one.")
+                        TextField("use this event title", text: $draft.options.altTitleFormat, prompt: Text("Same as above"))
+                        hint("Works like the event title above, for example `Teaching ({event})`. Left empty, these events use that one.")
                     }
-                    Toggle("Show the alternative label", isOn: variable("{altlabel}", in: \.altTitleFormat))
-                    Toggle("Show meeting titles", isOn: variable("{event}", in: \.altTitleFormat))
+                    Toggle("Show actual meeting/event titles", isOn: variable("{event}", in: \.altTitleFormat))
                     if let keyword = draft.options.altLabelKeywords.first {
                         LabeledContent("Example", value: Feed.summary(title: "\(keyword) 120", options: draft.options))
                     }
@@ -162,12 +158,7 @@ struct SetupView: View {
         }
         .formStyle(.grouped)
         .frame(minWidth: 560, maxWidth: .infinity, minHeight: 420, maxHeight: .infinity)
-        .onAppear {
-            // Settings from before 0.3.0 have no template yet; pin the one they had, so
-            // clearing the label doesn't quietly switch it
-            if draft.options.titleFormat == nil { draft.options.titleFormat = draft.options.titleTemplate }
-            loadCalendars()
-        }
+        .onAppear(perform: loadCalendars)
         .confirmationDialog("Remove every event AppleLook added to this calendar?", isPresented: $confirmRemove) {
             Button("Remove Events", role: .destructive) { removeEvents() }
         } message: {

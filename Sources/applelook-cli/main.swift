@@ -2,12 +2,12 @@ import AppleLookCore
 import Foundation
 
 // applelook-cli check-feed <url-or-file> [--titles] [--location] [--no-tentative]
-//                          [--skip-multiday] [--label TEXT] [--keys | --dump]
+//                          [--skip-multiday] [--title TEMPLATE] [--keys | --dump]
 // Lists what AppleLook would copy, without touching any calendar.
 
 var args = Array(CommandLine.arguments.dropFirst())
 guard args.first == "check-feed", args.count >= 2 else {
-    FileHandle.standardError.write(Data("usage: applelook-cli check-feed <url-or-file> [--titles] [--location] [--no-tentative] [--skip-multiday] [--label TEXT] [--keys | --dump]\n".utf8))
+    FileHandle.standardError.write(Data("usage: applelook-cli check-feed <url-or-file> [--titles] [--location] [--no-tentative] [--skip-multiday] [--title TEMPLATE] [--keys | --dump]\n".utf8))
     exit(2)
 }
 let source = args[1]
@@ -19,11 +19,11 @@ var dump = false
 while let flag = args.first {
     args.removeFirst()
     switch flag {
-    case "--titles": options.includeTitles = true
+    case "--titles": options.titleFormat = Feed.addingVariable("{event}", to: options.titleFormat)
     case "--location": options.includeLocation = true
     case "--no-tentative": options.includeTentative = false
     case "--skip-multiday": options.skipMultidayAllDay = true
-    case "--label": options.label = args.isEmpty ? "" : args.removeFirst()
+    case "--title": options.titleFormat = args.isEmpty ? "" : args.removeFirst()
     case "--keys": printKeys = true
     case "--dump": dump = true  // key, UTC start/end, title, location: for comparing with bridge.py
     default:

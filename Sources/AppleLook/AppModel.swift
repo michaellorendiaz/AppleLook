@@ -10,7 +10,7 @@ struct AppSettings: Codable, Equatable {
     var calendarID = ""
     var options: SyncOptions = {
         var o = SyncOptions()
-        o.label = "Work"
+        o.titleFormat = "Work"
         return o
     }()
 

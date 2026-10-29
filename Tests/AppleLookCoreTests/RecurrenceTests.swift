@@ -97,7 +97,7 @@ private func event(_ body: String) -> String {
         END:VEVENT
         END:VCALENDAR
         """
-        let d = desired(feed, now: iso.date(from: "2026-10-26T12:00:00Z")!) { $0.includeTitles = true; $0.label = "" }
+        let d = desired(feed, now: iso.date(from: "2026-10-26T12:00:00Z")!) { $0.titleFormat = "{event}" }
         let starts = d.values.sorted { $0.start < $1.start }.map { "\(iso.string(from: $0.start)) \($0.title)" }
         #expect(starts == [
             "2026-10-27T13:00:00Z Seminar",

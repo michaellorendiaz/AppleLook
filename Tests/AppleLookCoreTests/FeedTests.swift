@@ -80,7 +80,7 @@ func desired(_ feed: String = FEED, now: Date = NOW, _ tweak: (inout SyncOptions
 
 func titles(_ d: [String: DesiredEvent]) -> [String] { d.values.map(\.title).sorted() }
 
-let withTitles: (inout SyncOptions) -> Void = { $0.includeTitles = true; $0.label = "" }
+let withTitles: (inout SyncOptions) -> Void = { $0.titleFormat = "{event}" }
 
 @Suite struct BridgeParityTests {
     @Test func defaultsArePrivateBusyBlocks() {
@@ -97,7 +97,7 @@ let withTitles: (inout SyncOptions) -> Void = { $0.includeTitles = true; $0.labe
     }
 
     @Test func titlesAndLabel() {
-        #expect(titles(desired { $0.label = "Work"; $0.includeTitles = true }).contains("Work (Budget review)"))
+        #expect(titles(desired { $0.titleFormat = "Work ({event})" }).contains("Work (Budget review)"))
         #expect(titles(desired { withTitles(&$0) }).contains("Budget review"))
     }
 
@@ -120,7 +120,7 @@ let withTitles: (inout SyncOptions) -> Void = { $0.includeTitles = true; $0.labe
     @Test func settingsFromAnOlderVersionKeepTheirValues() throws {
         let old = #"{"label":"Work","includeTitles":true,"includeTentative":false}"#
         let o = try JSONDecoder().decode(SyncOptions.self, from: Data(old.utf8))
-        #expect(o.label == "Work" && o.includeTitles && !o.includeTentative)
+        #expect(o.titleFormat == "Work ({event})" && o.includeTitles && !o.includeTentative)
         #expect(!o.includeFree && o.windowForwardDays == 90, "missing options get defaults")
     }
 

@@ -2,38 +2,26 @@ import Foundation
 import Testing
 @testable import AppleLookCore
 
-// Same cases as the server's TitleTemplateTests and AltLabelTests (server/tests/test_engine.py)
+// Same cases as the server's TitleTemplateTests, UpgradeTests and AltTitleTests
+// (server/tests/test_engine.py)
 
 func options(_ tweak: (inout SyncOptions) -> Void) -> SyncOptions {
     var o = SyncOptions()
-    o.label = "Work"
     tweak(&o)
     return o
 }
 
+/// Settings as an older version saved them, decoded the way the app loads them.
+func saved(_ json: String) throws -> SyncOptions {
+    try JSONDecoder().decode(SyncOptions.self, from: Data(json.utf8))
+}
+
 @Suite struct TitleTemplateTests {
-    @Test func oldSettingsKeepTheirTitles() {
-        // settings saved before templates existed must produce exactly the same titles
-        for (label, titles) in [("Work", true), ("", true), ("Work", false), ("", false)] {
-            let o = options { $0.label = label; $0.includeTitles = titles }
-            let old = !label.isEmpty && titles ? "\(label) (Budget review)"
-                : !label.isEmpty ? label : titles ? "Budget review" : "Busy"
-            #expect(Feed.summary(title: "Budget review", options: o) == old)
-        }
-    }
-
-    @Test func savedBefore030Decodes() throws {
-        let old = #"{"label":"Work","includeTitles":true}"#
-        let o = try JSONDecoder().decode(SyncOptions.self, from: Data(old.utf8))
-        #expect(o.titleFormat == nil && o.titleTemplate == "{label} ({event})")
-        #expect(o.altLabelKeywords.isEmpty && o.altLabel.isEmpty && o.altTitleFormat.isEmpty)
-    }
-
     @Test func customTemplates() {
         let cases = [
-            "{label}: {event}": "Work: Budget review",
-            "{event} ({label})": "Budget review (Work)",
-            "[{label}] {event}": "[Work] Budget review",
+            "Work: {event}": "Work: Budget review",
+            "{event} (Work)": "Budget review (Work)",
+            "[Work] {event}": "[Work] Budget review",
             "{event}": "Budget review",
             "Out of office": "Out of office",
             "": "Busy",
@@ -44,44 +32,84 @@ func options(_ tweak: (inout SyncOptions) -> Void) -> SyncOptions {
         }
     }
 
-    @Test func anEmptyVariableLeavesNoStrayPunctuation() {
-        #expect(Feed.renderTitle("{label} ({event})", label: "Work", event: "") == "Work")
-        #expect(Feed.renderTitle("{label}: {event}", label: "", event: "Budget review") == "Budget review")
-        #expect(Feed.renderTitle("{event} [{label}]", label: "", event: "Budget review") == "Budget review")
-        #expect(Feed.renderTitle("({label})", label: "", event: "") == "Busy")
+    @Test func anEmptyTitleLeavesNoStrayPunctuation() {
+        #expect(Feed.renderTitle("Work ({event})", event: "") == "Work")
+        #expect(Feed.renderTitle("Work: {event}", event: " ") == "Work")
+        #expect(Feed.renderTitle("({event})", event: "") == "Busy")
     }
 
     @Test func theMeetingTitleIsNeverTrimmed() {
-        #expect(Feed.renderTitle("{label}: {event}", label: "", event: "Sync w/ J.R.") == "Sync w/ J.R.")
+        #expect(Feed.renderTitle("{event}", event: "Sync w/ J.R.") == "Sync w/ J.R.")
     }
 
     @Test func noEventVariableMeansNoTitles() {
-        #expect(Set(titles(desired { $0.label = "Work"; $0.titleFormat = "{label}" })) == ["Work"])
+        #expect(Set(titles(desired { $0.titleFormat = "Work" })) == ["Work"])
     }
 
-    @Test func togglesAddAndRemoveVariables() {
+    @Test func theToggleAddsAndRemovesEvent() {
         #expect(Feed.addingVariable("{event}", to: "") == "{event}")
-        #expect(Feed.addingVariable("{event}", to: "{label}") == "{label} ({event})")
-        #expect(Feed.addingVariable("{label}", to: "{event}") == "{label} ({event})")
-        #expect(Feed.addingVariable("{event}", to: "Class:") == "Class: {event}")
-        #expect(Feed.addingVariable("{altlabel}", to: "{event} today") == "{altlabel} {event} today")
-        // turning one off: take it out and tidy
-        #expect(Feed.tidyTemplate("{label} ()") == "{label}")
-        #expect(Feed.tidyTemplate(" ({event})") == "{event}")
-        #expect(Feed.tidyTemplate(": {event}") == "{event}")
+        #expect(Feed.addingVariable("{event}", to: "Work") == "Work ({event})")
+        #expect(Feed.addingVariable("{event}", to: "Michael: Work ") == "Michael: Work ({event})")
+        // unticking: take it out and tidy
+        #expect(Feed.tidyTemplate("Work ()") == "Work")
+        #expect(Feed.tidyTemplate("Work: ") == "Work")
     }
 
     @Test func includeTitlesFollowsTheTemplate() {
         var o = SyncOptions()
-        o.titleFormat = "{label}: {event}"
+        o.titleFormat = "Work: {event}"
         #expect(o.includeTitles)
-        o.titleFormat = "{label}"
+        o.titleFormat = "Work"
         #expect(!o.includeTitles)
     }
 }
 
-@Suite struct AltLabelTests {
-    let base = options { $0.includeTitles = true; $0.altLabelKeywords = ["ART"]; $0.altLabel = "Teaching" }
+@Suite struct UpgradeTests {
+    // Settings from before 0.3.2 had a label and an alternative label; their titles must
+    // come out exactly as before
+
+    @Test func settingsFromBeforeTemplates() throws {
+        for (label, titles) in [("Work", true), ("", true), ("Work", false), ("", false)] {
+            let o = try saved(#"{"label":"\#(label)","includeTitles":\#(titles)}"#)
+            let old = !label.isEmpty && titles ? "\(label) (Budget review)"
+                : !label.isEmpty ? label : titles ? "Budget review" : "Busy"
+            #expect(Feed.summary(title: "Budget review", options: o) == old)
+        }
+    }
+
+    @Test func labelsAreWrittenIntoTheTemplates() throws {
+        let o = try saved(#"{"label":"Work","titleFormat":"Michael: {label} ({event})","altLabelKeywords":["ART"],"altLabel":"Teaching","altTitleFormat":""}"#)
+        #expect(o.titleFormat == "Michael: Work ({event})")
+        #expect(o.altTitleFormat == "Michael: Teaching ({event})", "the alternative label stood in for the label")
+        #expect(Feed.summary(title: "ART 120", options: o) == "Michael: Teaching (ART 120)")
+    }
+
+    @Test func alternativeTemplateWithBothLabels() throws {
+        let o = try saved(#"{"label":"Work","titleFormat":"{label}","altLabel":"","altTitleFormat":"{altlabel}: {event} · {label}"}"#)
+        #expect(o.altTitleFormat == "{event} · Work", "an empty label is taken out")
+    }
+
+    @Test func anEmptyLabel() throws {
+        let o = try saved(#"{"label":"","titleFormat":"{label} ({event})"}"#)
+        #expect(o.titleFormat == "{event}")
+        #expect(o.altTitleFormat == "")
+    }
+
+    @Test func newSettingsAreLeftAlone() throws {
+        let o = try saved(#"{"titleFormat":"{event} ({label})"}"#)
+        #expect(o.titleFormat == "{event} ({label})")
+    }
+
+    @Test func theLabelsAreNotSavedAgain() throws {
+        let o = try saved(#"{"label":"Work","altLabel":"Teaching","includeTitles":true}"#)
+        let json = String(decoding: try JSONEncoder().encode(o), as: UTF8.self)
+        #expect(!json.contains("\"label\"") && !json.contains("\"altLabel\""))
+        #expect(try saved(json) == o, "saving and loading again changes nothing")
+    }
+}
+
+@Suite struct AltTitleTests {
+    let base = options { $0.titleFormat = "Work ({event})"; $0.altLabelKeywords = ["ART"]; $0.altTitleFormat = "Teaching ({event})" }
 
     func with(_ tweak: (inout SyncOptions) -> Void) -> SyncOptions {
         var o = base
@@ -89,7 +117,7 @@ func options(_ tweak: (inout SyncOptions) -> Void) -> SyncOptions {
         return o
     }
 
-    @Test func keywordSwitchesTheLabel() {
+    @Test func keywordSwitchesTheTitle() {
         #expect(Feed.summary(title: "ART 120 Drawing I", options: base) == "Teaching (ART 120 Drawing I)")
         #expect(Feed.summary(title: "Studio: ART209", options: base) == "Teaching (Studio: ART209)",
                 "a course number may follow")
@@ -105,28 +133,19 @@ func options(_ tweak: (inout SyncOptions) -> Void) -> SyncOptions {
     }
 
     @Test func severalKeywordsAndNoTitles() {
-        let o = with { $0.altLabelKeywords = ["ART", "DES"]; $0.titleFormat = "{label}" }
+        let o = with { $0.altLabelKeywords = ["ART", "DES"]; $0.titleFormat = "Work"; $0.altTitleFormat = "Teaching" }
         #expect(Feed.summary(title: "DES 101", options: o) == "Teaching")
         #expect(Feed.summary(title: "Faculty meeting", options: o) == "Work")
     }
 
-    @Test func itsOwnEventTitle() {
-        var o = with { $0.altTitleFormat = "{event} ({altlabel})" }
-        #expect(Feed.summary(title: "ART 120", options: o) == "ART 120 (Teaching)")
-        #expect(Feed.summary(title: "Budget review", options: o) == "Work (Budget review)",
-                "other meetings keep the usual title")
-        o = with { $0.titleFormat = "{label}"; $0.altTitleFormat = "Class: {event}" }
-        #expect(Feed.summary(title: "ART 209", options: o) == "Class: ART 209",
-                "the rule can show titles even when others don't")
+    @Test func theRuleCanShowTitlesWhenOthersDont() {
+        let o = with { $0.titleFormat = "Work"; $0.altTitleFormat = "Class: {event}" }
+        #expect(Feed.summary(title: "ART 209", options: o) == "Class: ART 209")
         #expect(Feed.summary(title: "Budget review", options: o) == "Work")
     }
 
-    @Test func bothLabels() {
-        var o = with { $0.altTitleFormat = "{altlabel} · {label}" }
-        #expect(Feed.summary(title: "ART 120", options: o) == "Teaching · Work",
-                "{label} stays the usual label in the rule's own title")
-        o = with { $0.altLabel = ""; $0.altTitleFormat = "{altlabel}: {event}" }
-        #expect(Feed.summary(title: "ART 120", options: o) == "ART 120", "an empty one is taken out")
+    @Test func emptyAlternativeTitleUsesTheUsualOne() {
+        #expect(Feed.summary(title: "ART 120", options: with { $0.altTitleFormat = "" }) == "Work (ART 120)")
     }
 
     @Test func noKeywordsChangesNothing() {

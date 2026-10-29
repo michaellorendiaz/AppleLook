@@ -3,18 +3,15 @@ import Foundation
 
 /// What gets copied and how it's labelled. Defaults match bridge.py's.
 public struct SyncOptions: Codable, Equatable, Sendable {
-    public var label = "Busy"
-    /// Whether titles are shown. Kept in step with titleFormat once that's set.
-    public var includeTitles = false
-    /// The event title, with {label}, {altlabel} and {event} filled in. nil in settings saved
-    /// before 0.3.0; titleTemplate then gives the template that reproduces their old titles.
-    public var titleFormat: String? {
-        didSet { if let titleFormat { includeTitles = titleFormat.contains("{event}") } }
+    /// The event title, with the meeting's title in place of {event}. Empty shows "Busy",
+    /// like bridge.py's private busy blocks.
+    public var titleFormat = "" {
+        didSet { includeTitles = titleFormat.contains("{event}") }
     }
-    /// Meetings whose title contains one of these words use altLabel, and altTitleFormat
-    /// if it's set ("ART" -> "Teaching").
+    /// Whether titles are shown. Kept in step with titleFormat.
+    public var includeTitles = false
+    /// Meetings whose title contains one of these words use altTitleFormat, if it's set.
     public var altLabelKeywords: [String] = []
-    public var altLabel = ""
     public var altTitleFormat = ""
     public var includeLocation = false
     public var onlineAsRemote = true
@@ -28,17 +25,17 @@ public struct SyncOptions: Codable, Equatable, Sendable {
 
     public init() {}
 
+    /// Settings from before 0.3.2 also kept these, as {label} and {altlabel} in the templates.
+    private enum LegacyKeys: String, CodingKey { case label, altLabel }
+
     // Options missing from saved settings (added in a later version) keep their defaults,
     // rather than failing to decode and losing everything the user set
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
         let d = SyncOptions()
-        label = try c.decodeIfPresent(String.self, forKey: .label) ?? d.label
         includeTitles = try c.decodeIfPresent(Bool.self, forKey: .includeTitles) ?? d.includeTitles
-        titleFormat = try c.decodeIfPresent(String.self, forKey: .titleFormat) ?? d.titleFormat
         altLabelKeywords = try c.decodeIfPresent([String].self, forKey: .altLabelKeywords) ?? d.altLabelKeywords
-        altLabel = try c.decodeIfPresent(String.self, forKey: .altLabel) ?? d.altLabel
-        altTitleFormat = try c.decodeIfPresent(String.self, forKey: .altTitleFormat) ?? d.altTitleFormat
         includeLocation = try c.decodeIfPresent(Bool.self, forKey: .includeLocation) ?? d.includeLocation
         onlineAsRemote = try c.decodeIfPresent(Bool.self, forKey: .onlineAsRemote) ?? d.onlineAsRemote
         includeTentative = try c.decodeIfPresent(Bool.self, forKey: .includeTentative) ?? d.includeTentative
@@ -47,18 +44,34 @@ public struct SyncOptions: Codable, Equatable, Sendable {
         excludeKeywords = try c.decodeIfPresent([String].self, forKey: .excludeKeywords) ?? d.excludeKeywords
         windowBackDays = try c.decodeIfPresent(Int.self, forKey: .windowBackDays) ?? d.windowBackDays
         windowForwardDays = try c.decodeIfPresent(Int.self, forKey: .windowForwardDays) ?? d.windowForwardDays
+        let saved = Self.upgrade(
+            titleFormat: try c.decodeIfPresent(String.self, forKey: .titleFormat),
+            altTitleFormat: try c.decodeIfPresent(String.self, forKey: .altTitleFormat) ?? "",
+            includeTitles: includeTitles,
+            label: try legacy.decodeIfPresent(String.self, forKey: .label),
+            altLabel: try legacy.decodeIfPresent(String.self, forKey: .altLabel))
+        titleFormat = saved.titleFormat
+        altTitleFormat = saved.altTitleFormat
+        includeTitles = titleFormat.contains("{event}")  // didSet doesn't run in an init
     }
 
-    /// The title template in effect. Settings saved before templates existed get the one
-    /// that reproduces their old titles exactly. Setting it sets titleFormat.
-    public var titleTemplate: String {
-        get {
-            if let titleFormat { return titleFormat }
-            let hasLabel = !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            if includeTitles { return hasLabel ? "{label} ({event})" : "{event}" }
-            return hasLabel ? "{label}" : ""
+    /// Settings from before 0.3.2 kept a label and an alternative label beside the templates,
+    /// as {label} and {altlabel}. Write them into the templates, so the titles come out exactly
+    /// as before. Same as the server's engine.upgrade_settings.
+    public static func upgrade(titleFormat: String?, altTitleFormat: String, includeTitles: Bool,
+                               label: String?, altLabel: String?) -> (titleFormat: String, altTitleFormat: String) {
+        if label == nil && altLabel == nil, let titleFormat { return (titleFormat, altTitleFormat) }
+        let label = (label ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let alt = (altLabel ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        var main = titleFormat ?? ""
+        if titleFormat == nil {  // saved before templates existed
+            main = !label.isEmpty ? (includeTitles ? "{label} ({event})" : "{label}") : (includeTitles ? "{event}" : "")
         }
-        set { titleFormat = newValue }
+        var own = altTitleFormat
+        if own.isEmpty && !alt.isEmpty && main.contains("{label}") {
+            own = main.replacingOccurrences(of: "{label}", with: "{altlabel}")  // the alternative label stood in for the label
+        }
+        return (Feed.fill(main, [("{label}", label)]), Feed.fill(own, [("{label}", label), ("{altlabel}", alt)]))
     }
 }
 
@@ -213,21 +226,14 @@ public enum Feed {
     }
 
     /// The event title others see: the title template, or for meetings matching an
-    /// alternative keyword, its own template, where {altlabel} is the alternative label.
-    /// With no template of its own, the alternative label takes the place of the label
-    /// in the usual one. Same as the server's engine.event_summary.
+    /// alternative keyword, the alternative template when there is one. Same as the
+    /// server's engine.event_summary.
     public static func summary(title: String, options o: SyncOptions) -> String {
-        var template = o.titleTemplate
-        var label = o.label
-        if altRuleApplies(title: title, options: o) {
-            if !o.altTitleFormat.isEmpty {
-                template = o.altTitleFormat
-            } else {
-                label = o.altLabel
-            }
+        var template = o.titleFormat
+        if altRuleApplies(title: title, options: o) && !o.altTitleFormat.isEmpty {
+            template = o.altTitleFormat
         }
-        return renderTitle(template, label: label, event: template.contains("{event}") ? title : "",
-                           altLabel: o.altLabel)
+        return renderTitle(template, event: template.contains("{event}") ? title : "")
     }
 
     /// Whether the title contains one of the alternative keywords as a word, matching case.
@@ -240,13 +246,15 @@ public enum Feed {
         }
     }
 
-    /// Fill {label}, {altlabel} and {event}. An empty one is taken out of the template
-    /// first, so "{label} ({event})" with no title gives "Work", not "Work ()". The meeting
-    /// title itself is never trimmed or changed.
-    public static func renderTitle(_ template: String, label: String, event: String, altLabel: String = "") -> String {
-        let values = [("{label}", label.trimmingCharacters(in: .whitespacesAndNewlines)),
-                      ("{altlabel}", altLabel.trimmingCharacters(in: .whitespacesAndNewlines)),
-                      ("{event}", event)]
+    /// Fill {event} with the meeting's title, which is never trimmed or changed.
+    public static func renderTitle(_ template: String, event: String) -> String {
+        let s = fill(template, [("{event}", event)])
+        return s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Busy" : s
+    }
+
+    /// Put values in for their variables. An empty one is taken out of the template first,
+    /// so "Work ({event})" with no title gives "Work", not "Work ()".
+    static func fill(_ template: String, _ values: [(String, String)]) -> String {
         var t = template
         let empty = values.filter { t.contains($0.0) && $0.1.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         if !empty.isEmpty {
@@ -254,19 +262,15 @@ public enum Feed {
             t = tidyTemplate(t)
         }
         for (token, value) in values { t = t.replacingOccurrences(of: token, with: value) }
-        return t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Busy" : t
+        return t
     }
 
-    /// What the settings toggles do when they add a variable: into an empty template just the
-    /// variable, next to a lone variable "{label} ({event})", otherwise {event} at the end and
-    /// a label at the start. Same as the server page's addToken.
+    /// What the "Show actual meeting/event titles" toggles do when ticked: into an empty
+    /// template just the variable, otherwise " ({event})" at the end. Same as the server
+    /// page's addToken.
     public static func addingVariable(_ token: String, to template: String) -> String {
         let t = template.trimmingCharacters(in: .whitespacesAndNewlines)
-        if t.isEmpty { return token }
-        if t.range(of: #"^\{\w+\}$"#, options: .regularExpression) != nil {
-            return token == "{event}" ? "\(t) (\(token))" : "\(token) (\(t))"
-        }
-        return token == "{event}" ? "\(t) \(token)" : "\(token) \(t)"
+        return t.isEmpty ? token : "\(t) (\(token))"
     }
 
     static let separators: Set<Character> = [" ", "\t", ":", ";", ",", ".", "|", "/", "\\", "-", "\u{2013}", "\u{2014}", "\u{00B7}"]
