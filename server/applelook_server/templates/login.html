@@ -1,9 +1,17 @@
 {% extends "base.html" %}
 {% block body %}
 <div class="card">
-  {% if missing %}
-    <h2>No login password set</h2>
-    <p>Start the container with <code>APPLELOOK_PASSWORD</code> set to the password you want for this page.</p>
+  {% if setup %}
+    <h2>Choose a password</h2>
+    <p class="hint">This page holds your calendar link and iCloud password, so it needs a password of its own. You'll use it to log in from now on.</p>
+    <form method="post" action="login">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <label class="field" for="new_password">Password</label>
+      <input type="password" id="new_password" name="new_password" autofocus autocomplete="new-password" minlength="8" required>
+      <label class="field" for="confirm_password">Type it again</label>
+      <input type="password" id="confirm_password" name="confirm_password" autocomplete="new-password" minlength="8" required>
+      <div class="actions"><button class="primary">Save and Log In</button></div>
+    </form>
   {% else %}
     <h2>Log in</h2>
     <form method="post" action="login">

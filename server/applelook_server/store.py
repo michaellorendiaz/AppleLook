@@ -1,9 +1,12 @@
 """Settings and secrets, kept in the data folder (/data in the container)."""
 
+import hashlib
 import json
 import os
 import secrets
 from pathlib import Path
+
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from . import engine
 
@@ -58,6 +61,36 @@ def session_secret():
     if not path.exists():
         _write_private(path, secrets.token_hex(32))
     return path.read_text().strip()
+
+
+def login_password_from_env():
+    return bool(os.environ.get("APPLELOOK_PASSWORD"))
+
+
+def has_login_password():
+    return login_password_from_env() or (DATA / "login-password").exists()
+
+
+def check_login_password(password):
+    """APPLELOOK_PASSWORD if set, else the password chosen on the page (kept only as a hash)."""
+    env = os.environ.get("APPLELOOK_PASSWORD")
+    if env:
+        return secrets.compare_digest(password.encode(), env.encode())
+    path = DATA / "login-password"
+    return path.exists() and check_password_hash(path.read_text().strip(), password)
+
+
+def save_login_password(password):
+    DATA.mkdir(parents=True, exist_ok=True)
+    _write_private(DATA / "login-password", generate_password_hash(password))
+
+
+def login_stamp():
+    """Changes whenever the login password does, so a change logs out every other browser."""
+    env = os.environ.get("APPLELOOK_PASSWORD")
+    path = DATA / "login-password"
+    source = "env:" + env if env else (path.read_text() if path.exists() else "")
+    return hashlib.sha256(source.encode()).hexdigest()[:16]
 
 
 def is_complete(cfg):

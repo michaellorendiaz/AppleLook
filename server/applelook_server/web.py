@@ -1,7 +1,8 @@
 """AppleLook Server: a settings page plus a background sync every 15 minutes.
 
 Access control (APPLELOOK_AUTH):
-  password  (default) a login page; the password is APPLELOOK_PASSWORD
+  password  (default) a login page. The password is chosen on the first visit and
+            kept as a hash in the data folder, or set with APPLELOOK_PASSWORD
   ingress   Home Assistant add-on: no login of our own, and only Home Assistant's
             ingress proxy may connect (Home Assistant has already logged the user in)
   none      no login at all; only for trying it out on your own computer
@@ -27,6 +28,7 @@ from . import __version__, engine, store
 
 INGRESS_PROXY = "172.30.32.2"   # Home Assistant's ingress gateway
 INTERVAL_MIN = 15
+MIN_PASSWORD = 8
 AUTH_RETRY_WAIT = 30    # seconds before retrying a sign-in iCloud turned away
 AUTH_FAILS_TO_BLAME = 3  # syncs in a row before blaming the password
 
@@ -174,7 +176,7 @@ def create_app():
     app.secret_key = store.session_secret()
     app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Strict")
     auth = os.environ.get("APPLELOOK_AUTH", "password")
-    login_password = os.environ.get("APPLELOOK_PASSWORD", "")
+    setup_lock = threading.Lock()
 
     @app.get("/health")
     def health():
@@ -188,7 +190,7 @@ def create_app():
             if request.remote_addr != INGRESS_PROXY:
                 abort(403)
         elif auth == "password":
-            if request.endpoint not in ("login", "static") and not session.get("in"):
+            if request.endpoint not in ("login", "static") and session.get("in") != store.login_stamp():
                 return go("login")
         if request.method == "POST" and request.endpoint != "login":
             if not hmac.compare_digest(request.form.get("csrf", ""), session.get("csrf", "-")):
@@ -198,22 +200,64 @@ def create_app():
     def common():
         if "csrf" not in session:
             session["csrf"] = secrets.token_urlsafe(24)
-        return {"csrf": session["csrf"], "version": __version__, "auth": auth}
+        return {"csrf": session["csrf"], "version": __version__, "auth": auth,
+                "password_from_page": auth == "password" and not store.login_password_from_env()}
+
+    def log_in():
+        session.clear()
+        session["in"] = store.login_stamp()
+
+    def new_password_problem(f):
+        if len(f.get("new_password", "")) < MIN_PASSWORD:
+            return f"Choose a password of at least {MIN_PASSWORD} characters."
+        if f["new_password"] != f.get("confirm_password"):
+            return "The two passwords don't match."
+        return None
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
         if auth != "password":
             return go()
-        if not login_password:
-            return render_template("login.html", missing=True)
+        if not store.has_login_password():
+            # first visit: whoever opens the page chooses its password
+            if request.method == "POST":
+                if not hmac.compare_digest(request.form.get("csrf", ""), session.get("csrf", "-")):
+                    abort(400)
+                problem = new_password_problem(request.form)
+                if problem:
+                    flash(problem, "error")
+                else:
+                    with setup_lock:
+                        if store.has_login_password():
+                            return go("login")  # someone else chose it a moment ago
+                        store.save_login_password(request.form["new_password"])
+                    log_in()
+                    return go()
+            return render_template("login.html", setup=True)
         if request.method == "POST":
-            if hmac.compare_digest(request.form.get("password", ""), login_password):
-                session.clear()
-                session["in"] = True
+            if store.check_login_password(request.form.get("password", "")):
+                log_in()
                 return go()
             time.sleep(1)
             flash("That password isn't right.", "error")
-        return render_template("login.html", missing=False)
+        return render_template("login.html", setup=False)
+
+    @app.post("/password")
+    def change_password():
+        if auth != "password" or store.login_password_from_env():
+            abort(404)
+        if not store.check_login_password(request.form.get("current_password", "")):
+            time.sleep(1)
+            flash("The current password isn't right.", "error")
+            return go()
+        problem = new_password_problem(request.form)
+        if problem:
+            flash(problem, "error")
+            return go()
+        store.save_login_password(request.form["new_password"])
+        log_in()
+        flash("Password changed. Other browsers have to log in again.", "ok")
+        return go()
 
     @app.post("/logout")
     def logout():
@@ -360,15 +404,13 @@ def main():
     logging.basicConfig(level=logging.INFO, stream=sys.stdout,
                         format="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
     auth = os.environ.get("APPLELOOK_AUTH", "password")
-    if auth == "password" and not os.environ.get("APPLELOOK_PASSWORD"):
-        log.error("Set APPLELOOK_PASSWORD (the settings page's login password), "
-                  "or APPLELOOK_AUTH=ingress when running as a Home Assistant add-on.")
-        sys.exit(1)
     if auth not in ("password", "ingress", "none"):
         log.error("APPLELOOK_AUTH must be password, ingress or none")
         sys.exit(1)
     if auth == "none":
         log.warning("APPLELOOK_AUTH=none: the settings page has no login")
+    if auth == "password" and not store.has_login_password():
+        log.warning("No login password yet: open the settings page now to choose one")
 
     from waitress import serve
     threading.Thread(target=scheduler, daemon=True, name="scheduler").start()

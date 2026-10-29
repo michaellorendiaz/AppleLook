@@ -20,7 +20,7 @@ It runs two ways:
 
 ## Option 2: Docker Compose
 
-Put this in a `docker-compose.yml` (or add the service to one you already have), with your own password and time zone:
+Put this in a `docker-compose.yml` (or add the service to one you already have), with your time zone:
 
 ```yaml
 services:
@@ -31,7 +31,6 @@ services:
     ports:
       - "8080:8080"
     environment:
-      APPLELOOK_PASSWORD: "a-long-password-you-choose"
       TZ: "America/New_York"
     volumes:
       - applelook-data:/data
@@ -40,7 +39,7 @@ volumes:
   applelook-data:
 ```
 
-Then run `docker compose up -d`, open `http://<this-machine>:8080`, log in with `APPLELOOK_PASSWORD`, and fill in the settings. If port 8080 is taken, change the left number, like `"8090:8080"`.
+Then run `docker compose up -d`, open `http://<this-machine>:8080`, choose a password for the page, and fill in the settings. Choose the password right after starting it: until then, anyone on your network who opens the page could choose it. If port 8080 is taken, change the left number, like `"8090:8080"`.
 
 To update: `docker compose pull && docker compose up -d`. Settings are kept in the `applelook-data` volume. The image runs on Intel and ARM (including Raspberry Pi). To pin a version instead of `latest`, use a tag like `ghcr.io/michaellorendiaz/applelook:0.3.1`.
 
@@ -55,12 +54,14 @@ Keep the page on your home network. Don't forward port 8080 from your router: it
 
 **Preview** shows what a sync would add, change and remove, without saving. **Save and Sync** saves and syncs right away; after that it syncs at :00, :15, :30 and :45. **Remove Events…** deletes everything AppleLook added to the calendar.
 
+**Change password** (at the bottom of the page) changes the login password and logs out every other browser. Forgot it? Delete the `login-password` file in the data folder (for the compose above, `docker exec applelook rm /data/login-password`), then open the page and choose a new one.
+
 ## Configuration
 
 | Variable | Default | What it does |
 |---|---|---|
 | `APPLELOOK_AUTH` | `password` | `password`: login page. `ingress`: Home Assistant add-on (set for you). `none`: no login, only for trying it on your own computer. |
-| `APPLELOOK_PASSWORD` | (none) | The login password, required with `APPLELOOK_AUTH=password`. |
+| `APPLELOOK_PASSWORD` | (none) | Sets the login password here instead of choosing it on the page. Optional. |
 | `ICLOUD_APP_PASSWORD` | (none) | Supply the app-specific password from the environment instead of the page. |
 | `TZ` | UTC | Your time zone, for times shown on the page. |
 | `APPLELOOK_PORT` | `8080` | Port to listen on. |

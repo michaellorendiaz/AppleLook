@@ -12,7 +12,10 @@ from importlib import reload
 def make_app(auth="password", password="hunter2"):
     os.environ["APPLELOOK_DATA"] = tempfile.mkdtemp()
     os.environ["APPLELOOK_AUTH"] = auth
-    os.environ["APPLELOOK_PASSWORD"] = password
+    if password:
+        os.environ["APPLELOOK_PASSWORD"] = password
+    else:
+        os.environ.pop("APPLELOOK_PASSWORD", None)
     os.environ.pop("ICLOUD_APP_PASSWORD", None)
     from applelook_server import store, web
     reload(store)
@@ -70,6 +73,80 @@ class AuthTests(unittest.TestCase):
         c = app.test_client()
         c.get("/")
         self.assertEqual(c.post("/save", data={"title_format": "x"}).status_code, 400)
+
+
+class ChosenPasswordTests(unittest.TestCase):
+    """Without APPLELOOK_PASSWORD, the first visit chooses the password."""
+
+    def setUp(self):
+        self.app, self.store = make_app(password=None)
+        self.c = self.app.test_client()
+
+    def login_csrf(self, client):
+        html = client.get("/login").get_data(as_text=True)
+        return re.search(r'name="csrf" value="([^"]+)"', html).group(1)
+
+    def choose(self, client, new, confirm=None, csrf=None):
+        return client.post("/login", follow_redirects=True, data={
+            "csrf": csrf or self.login_csrf(client), "new_password": new,
+            "confirm_password": new if confirm is None else confirm}).get_data(as_text=True)
+
+    def test_first_visit_chooses_the_password(self):
+        self.assertEqual(self.c.get("/").status_code, 302)
+        self.assertIn("Choose a password", self.c.get("/login").get_data(as_text=True))
+        self.assertIn("at least 8", self.choose(self.c, "short"))
+        self.assertIn("don&#39;t match", self.choose(self.c, "long enough", "long enougj"))
+        self.assertFalse((self.store.DATA / "login-password").exists())
+        page = self.choose(self.c, "long enough")
+        self.assertIn("Change password", page, "logged in, with a way to change it")
+        stored = (self.store.DATA / "login-password").read_text()
+        self.assertNotIn("long enough", stored, "only a hash is kept")
+        self.assertEqual(oct((self.store.DATA / "login-password").stat().st_mode & 0o777), "0o600")
+        other = self.app.test_client()
+        self.assertIn("Log in", other.get("/login").get_data(as_text=True))
+        other.post("/login", data={"password": "long enough"})
+        self.assertEqual(other.get("/").status_code, 200)
+
+    def test_setup_needs_the_page_token(self):
+        # a form on another website can't claim an unclaimed server
+        r = self.c.post("/login", data={"new_password": "long enough", "confirm_password": "long enough"})
+        self.assertEqual(r.status_code, 400)
+        self.assertFalse((self.store.DATA / "login-password").exists())
+
+    def test_once_chosen_it_cant_be_chosen_again(self):
+        late = self.app.test_client()
+        csrf = self.login_csrf(late)
+        self.choose(self.c, "long enough")
+        self.choose(late, "someone else", csrf=csrf)
+        self.assertTrue(self.store.check_login_password("long enough"))
+        self.assertEqual(late.get("/").status_code, 302)
+
+    def test_change_password_logs_out_other_browsers(self):
+        self.choose(self.c, "long enough")
+        other = self.app.test_client()
+        other.post("/login", data={"password": "long enough"})
+        csrf = csrf_of(self.c)
+        page = self.c.post("/password", follow_redirects=True, data={
+            "csrf": csrf, "current_password": "wrong", "new_password": "brand new pw",
+            "confirm_password": "brand new pw"}).get_data(as_text=True)
+        self.assertIn("current password isn", page)
+        page = self.c.post("/password", follow_redirects=True, data={
+            "csrf": csrf, "current_password": "long enough", "new_password": "brand new pw",
+            "confirm_password": "brand new pw"}).get_data(as_text=True)
+        self.assertIn("Password changed", page)
+        self.assertEqual(self.c.get("/").status_code, 200, "this browser stays logged in")
+        self.assertEqual(other.get("/").status_code, 302, "others log in again")
+        self.assertTrue(self.store.check_login_password("brand new pw"))
+
+    def test_password_from_the_environment_cant_be_changed_on_the_page(self):
+        app, _ = make_app()
+        c = app.test_client()
+        c.post("/login", data={"password": "hunter2"})
+        page = c.get("/").get_data(as_text=True)
+        self.assertNotIn("Change password", page)
+        r = c.post("/password", data={"csrf": csrf_of(c), "current_password": "hunter2",
+                                      "new_password": "brand new pw", "confirm_password": "brand new pw"})
+        self.assertEqual(r.status_code, 404)
 
 
 class SettingsTests(unittest.TestCase):

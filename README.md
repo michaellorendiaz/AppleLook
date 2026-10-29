@@ -149,7 +149,7 @@ AppleLook Server does the same job from a Docker container on a machine that's a
 
 ### Install the server
 
-1. Make a folder for it, such as `~/applelook`, and in it create a file named `docker-compose.yml` with your own login password for the settings page and your time zone:
+1. Make a folder for it, such as `~/applelook`, and in it create a file named `docker-compose.yml` with your time zone:
 
    ```yaml
    services:
@@ -160,7 +160,6 @@ AppleLook Server does the same job from a Docker container on a machine that's a
        ports:
          - "8080:8080"
        environment:
-         APPLELOOK_PASSWORD: "a-long-password-you-choose"
          TZ: "America/New_York"
        volumes:
          - applelook-data:/data
@@ -187,7 +186,7 @@ AppleLook Server does the same job from a Docker container on a machine that's a
 
 ### Set up the server
 
-1. From any computer on your home network, open `http://<server-address>:8080` (for example `http://192.168.1.20:8080`) and log in with the password from step 1.
+1. From any computer on your home network, open `http://<server-address>:8080` (for example `http://192.168.1.20:8080`) and choose a password for the page. Do this right after starting it: until a password is chosen, anyone on your network who opens the page could choose it.
 2. Paste your Outlook link, your Apple ID and the app-specific password.
 3. Choose the iCloud calendar to copy into, or create a new one from the page.
 4. Choose what others will see: the [event title](#event-titles), locations, and whether to include meetings marked Tentative or Free.
