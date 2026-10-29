@@ -20,7 +20,7 @@
 
 > **Never used GitHub?** On a Mac, click the green **Download AppleLook** button above, then follow [Install the Mac app](#install-the-mac-app). You don't need a GitHub account.
 
-AppleLook copies your Outlook work calendar into an iCloud calendar you can share with your family. Outlook can publish your calendar as a link, and Apple Calendar can subscribe to it, but a subscribed calendar can't be shared through iCloud and it gives no flexibility to how events are displayed. AppleLook creates a shareable iCloud calendar, keeps it up to date every 15 minutes, and allows you to choose what your family sees: meeting titles, "Busy", or a label of your own.
+AppleLook copies your Outlook work calendar into an iCloud calendar you can share with your family. While Outlook can publish your calendar as a link that Apple Calendar can subscribe to, the calendar can't be shared through iCloud this way and it gives no flexibility to how events are displayed. AppleLook creates a shareable iCloud calendar, keeps it up to date every 15 minutes, and allows you to choose what your family sees: meeting titles, "Busy", or a label of your own.
 
 It works from Outlook's published calendar link alone, so it never signs in to your Microsoft account and cannot edit your Outlook calendar directly. It only edits events it creates in Apple Calendar.
 
