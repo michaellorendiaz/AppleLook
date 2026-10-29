@@ -145,18 +145,13 @@ def settings_from_form(f, cfg):
     cfg["feed_url"] = link or ""
     cfg["apple_id"] = f.get("apple_id", "").strip()
     cfg["target_calendar"] = f.get("target_calendar", "").strip()
-    cfg["label"] = f.get("label", "").strip()
     for key in ("include_titles", "include_location", "include_tentative", "include_free",
                 "skip_multiday_allday"):
         cfg[key] = key in f
-    if "title_format" in f:
-        # the template is the truth; the checkboxes on the page only edit it
-        cfg["title_format"] = " ".join(f["title_format"].split())
-        cfg["include_titles"] = "{event}" in cfg["title_format"]
-    else:
-        cfg["title_format"] = None  # built from label and include_titles
+    # the template is the truth; the checkboxes on the page only edit it
+    cfg["title_format"] = " ".join(f.get("title_format", "").split())
+    cfg["include_titles"] = "{event}" in cfg["title_format"]
     cfg["alt_label_keywords"] = [k.strip() for k in f.get("alt_label_keywords", "").split(",") if k.strip()]
-    cfg["alt_label"] = f.get("alt_label", "").strip()
     cfg["alt_title_format"] = " ".join(f.get("alt_title_format", "").split())
     cfg["exclude_keywords"] = [k.strip() for k in f.get("exclude_keywords", "").split(",") if k.strip()]
     # Event IDs are made unique to the calendar so iCloud doesn't refuse them (412) when
@@ -254,7 +249,7 @@ def create_app():
             "index.html", cfg=form_cfg, has_password=bool(password), password_from_env=store.password_from_env(),
             calendars=calendars, calendar_error=calendar_error, complete=saved_complete,
             status=status, preview=preview, saved_calendar=cfg["target_calendar"],
-            title_format=engine.title_format(form_cfg),
+            title_format=form_cfg["title_format"],
             example=engine.event_summary("Budget review", form_cfg),
             alt_example=(engine.event_summary(form_cfg["alt_label_keywords"][0] + " 120", form_cfg)
                          if form_cfg["alt_label_keywords"] else ""))

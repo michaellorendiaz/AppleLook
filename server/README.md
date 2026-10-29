@@ -51,7 +51,7 @@ Keep the page on your home network. Don't forward port 8080 from your router: it
 1. **Outlook link.** If you paste the HTML link by mistake, it's switched to the ICS one.
 2. **iCloud account.** Apple ID and app-specific password. The password is stored in the data folder, readable only by the app, and never shown again.
 3. **Calendar.** Pick from your iCloud calendars, or create a new one. Changing it later moves AppleLook's events to the new calendar.
-4. **What others see.** Label, meeting titles, locations, and whether to include Tentative and Free meetings.
+4. **What others see.** The event title, locations, and whether to include Tentative and Free meetings.
 
 **Preview** shows what a sync would add, change and remove, without saving. **Save and Sync** saves and syncs right away; after that it syncs at :00, :15, :30 and :45. **Remove Events…** deletes everything AppleLook added to the calendar.
 

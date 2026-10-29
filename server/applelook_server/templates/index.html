@@ -78,13 +78,10 @@
 
 <div class="card">
   <h2>4. What others will see</h2>
-  <label class="field" for="label">Label</label>
-  <input type="text" id="label" name="label" value="{{ cfg.label }}" placeholder="Work">
   <label class="field" for="title_format">Event title</label>
   <input type="text" id="title_format" name="title_format" value="{{ title_format }}" placeholder="Busy" autocomplete="off" spellcheck="false">
-  <p class="hint"><code>{label}</code> is the label above and <code>{event}</code> is the meeting’s title. Type anything around them, like <code>{label}: {event}</code> or <code>{event} ({label})</code>. Left empty, events show as “Busy”.</p>
-  <label class="check"><input type="checkbox" name="show_label" data-for="title_format" data-token="{label}" {% if '{label}' in title_format %}checked{% endif %}> Show the label</label>
-  <label class="check"><input type="checkbox" name="include_titles" data-for="title_format" data-token="{event}" {% if '{event}' in title_format %}checked{% endif %}> Show meeting titles</label>
+  <p class="hint"><code>{event}</code> is the meeting’s title. Type anything around it, like <code>Work: {event}</code> or <code>{event} (Work)</code>. Left empty, events show as “Busy”.</p>
+  <label class="check"><input type="checkbox" name="include_titles" data-for="title_format" data-token="{event}" {% if '{event}' in title_format %}checked{% endif %}> Show actual meeting/event titles</label>
   <label class="check"><input type="checkbox" name="include_location" {% if cfg.include_location %}checked{% endif %}> Show locations (online meetings show as “Remote”)</label>
   <label class="check"><input type="checkbox" name="include_tentative" {% if cfg.include_tentative %}checked{% endif %}> Include meetings marked Tentative</label>
   <label class="check"><input type="checkbox" name="include_free" {% if cfg.include_free %}checked{% endif %}> Include meetings marked Free</label>
@@ -103,13 +100,10 @@
     <label class="field" for="alt_label_keywords">For events that contain the keyword</label>
     <input type="text" id="alt_label_keywords" name="alt_label_keywords" value="{{ cfg.alt_label_keywords | join(', ') }}" placeholder="Enter keyword(s)" autocomplete="off" spellcheck="false">
     <p class="hint">Matches the exact word, including capitalization: “ART” matches “ART show” and “ART123”, but not “Art show” or “PARTY”. Separate several keywords with commas.</p>
-    <label class="field" for="alt_label">use the alternative label</label>
-    <input type="text" id="alt_label" name="alt_label" value="{{ cfg.alt_label }}" placeholder="Teaching">
-    <label class="field" for="alt_title_format">and this event title</label>
+    <label class="field" for="alt_title_format">use this event title</label>
     <input type="text" id="alt_title_format" name="alt_title_format" value="{{ cfg.alt_title_format }}" placeholder="Same as above" autocomplete="off" spellcheck="false">
-    <p class="hint"><code>{altlabel}</code> is the alternative label above; <code>{event}</code> and <code>{label}</code> work as in the event title above. Leave it empty to use that one.</p>
-    <label class="check"><input type="checkbox" data-for="alt_title_format" data-token="{altlabel}" {% if '{altlabel}' in cfg.alt_title_format %}checked{% endif %}> Show the alternative label</label>
-    <label class="check"><input type="checkbox" data-for="alt_title_format" data-token="{event}" {% if '{event}' in cfg.alt_title_format %}checked{% endif %}> Show meeting titles</label>
+    <p class="hint">Works like the event title above, for example <code>Teaching ({event})</code>. Left empty, these events use that one.</p>
+    <label class="check"><input type="checkbox" data-for="alt_title_format" data-token="{event}" {% if '{event}' in cfg.alt_title_format %}checked{% endif %}> Show actual meeting/event titles</label>
     <p class="hint" id="alt_example_wrap" {% if not alt_example %}hidden{% endif %}>Example: <strong id="alt_example">{{ alt_example }}</strong></p>
   </details>
 </div>
@@ -144,7 +138,7 @@
 {% endif %}
 
 <script>
-  // The checkboxes add and remove {label}, {altlabel} and {event} in the title templates, and
+  // The checkboxes add and remove {event} in the title templates, and
   // typing in the template ticks or unticks them. The example mirrors
   // engine.render_title.
   const form = document.getElementById("settings");
@@ -164,20 +158,14 @@
     if (m) { const inner = m[1] ?? m[2]; if (!/[()\[\]]/.test(inner)) t = trimSep(inner); }
     return t;
   }
-  function render(t, label, event, altlabel = "") {
-    const values = {"{label}": label.trim(), "{altlabel}": altlabel.trim(), "{event}": event};
-    let empty = false;
-    for (const tok in values) if (t.includes(tok) && !values[tok].trim()) { t = t.split(tok).join(""); empty = true; }
-    if (empty) t = tidy(t);
-    let s = t;
-    for (const tok in values) s = s.split(tok).join(values[tok]);
+  function render(t, event) {
+    if (t.includes("{event}") && !event.trim()) t = tidy(t.split("{event}").join(""));
+    const s = t.split("{event}").join(event);
     return s.trim() ? s : "Busy";
   }
   function addToken(t, tok) {
     t = t.trim();
-    if (!t) return tok;
-    if (/^\{\w+\}$/.test(t)) return tok === "{event}" ? `${t} (${tok})` : `${tok} (${t})`;
-    return tok === "{event}" ? `${t} ${tok}` : `${tok} ${t}`;
+    return t ? `${t} (${tok})` : tok;
   }
   function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
   function keywords() { return form.alt_label_keywords.value.split(",").map(k => k.trim()).filter(Boolean); }
@@ -187,10 +175,9 @@
   }
   function summary(title) {
     // mirrors engine.event_summary
-    const own = form.alt_title_format.value.trim(), altlabel = form.alt_label.value;
-    let t = fmt.value, label = form.label.value;
-    if (altApplies(title)) { if (own) t = own; else label = altlabel; }
-    return render(t, label, t.includes("{event}") ? title : "", altlabel);
+    const own = form.alt_title_format.value.trim();
+    const t = altApplies(title) && own ? own : fmt.value;
+    return render(t, t.includes("{event}") ? title : "");
   }
   function example() {
     document.getElementById("example").textContent = summary("Budget review");

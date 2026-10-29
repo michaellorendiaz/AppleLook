@@ -81,7 +81,7 @@ END:VCALENDAR
 
 
 def desired(**overrides):
-    cfg = dict(engine.DEFAULTS, label="Busy")  # bridge.py's default label
+    cfg = dict(engine.DEFAULTS, title_format="")  # bridge.py's default: "Busy"
     cfg.update(overrides)
     return engine.build_desired(Calendar.from_ical(FEED), cfg, now=NOW)
 
@@ -101,13 +101,13 @@ class BridgeParityTests(unittest.TestCase):
         self.assertTrue(all(v[3] == "" for v in d.values()), "no locations by default")
 
     def test_free_and_cancelled_are_never_synced_by_default(self):
-        d = desired(include_titles=True, label="")
+        d = desired(title_format="{event}")
         self.assertNotIn("Lunch hold", summaries(d))
         self.assertNotIn("Cancelled sync", summaries(d))
 
     def test_titles_and_label(self):
-        self.assertIn("Work (Budget review)", summaries(desired(label="Work", include_titles=True)))
-        self.assertIn("Budget review", summaries(desired(label="", include_titles=True)))
+        self.assertIn("Work (Budget review)", summaries(desired(title_format="Work ({event})")))
+        self.assertIn("Budget review", summaries(desired(title_format="{event}")))
 
     def test_location_and_remote(self):
         locs = {v[3] for v in desired(include_location=True).values()}
@@ -118,19 +118,19 @@ class BridgeParityTests(unittest.TestCase):
 
     def test_tentative_toggle(self):
         self.assertNotIn("Maybe meeting",
-                         summaries(desired(include_titles=True, label="", include_tentative=False)))
+                         summaries(desired(title_format="{event}", include_tentative=False)))
 
     def test_skip_multiday_allday_keeps_single_day(self):
-        s = summaries(desired(include_titles=True, label="", skip_multiday_allday=True))
+        s = summaries(desired(title_format="{event}", skip_multiday_allday=True))
         self.assertNotIn("Room booking", s)
         self.assertIn("Offsite", s)
 
     def test_exclude_keywords(self):
-        s = summaries(desired(include_titles=True, label="", exclude_keywords=["doctor"]))
+        s = summaries(desired(title_format="{event}", exclude_keywords=["doctor"]))
         self.assertNotIn("Doctor appointment", s)
 
     def test_recurrence_expanded_with_stable_uids(self):
-        s = summaries(desired(include_titles=True, label=""))
+        s = summaries(desired(title_format="{event}"))
         self.assertEqual(s.count("Team standup"), 3)
         self.assertEqual(set(desired()), set(desired()), "UIDs must be deterministic")
 
@@ -144,45 +144,71 @@ class BridgeParityTests(unittest.TestCase):
 
 
 class TitleTemplateTests(unittest.TestCase):
-    def test_old_settings_keep_their_titles(self):
-        # settings saved before templates existed must produce exactly the same titles
-        for label, titles in (("Work", True), ("", True), ("Work", False), ("", False)):
-            cfg = dict(engine.DEFAULTS, label=label, include_titles=titles)
-            old = f"{label} (Budget review)" if label and titles else (label or ("Budget review" if titles else "") or "Busy")
-            self.assertEqual(engine.event_summary("Budget review", cfg), old)
-
     def test_custom_templates(self):
         cases = {
-            "{label}: {event}": "Work: Budget review",
-            "{event} ({label})": "Budget review (Work)",
-            "[{label}] {event}": "[Work] Budget review",
+            "Work: {event}": "Work: Budget review",
+            "{event} (Work)": "Budget review (Work)",
+            "[Work] {event}": "[Work] Budget review",
             "{event}": "Budget review",
             "Out of office": "Out of office",
             "": "Busy",
         }
         for template, title in cases.items():
-            cfg = dict(engine.DEFAULTS, label="Work", title_format=template)
+            cfg = dict(engine.DEFAULTS, title_format=template)
             self.assertEqual(engine.event_summary("Budget review", cfg), title, template)
 
-    def test_an_empty_variable_leaves_no_stray_punctuation(self):
-        self.assertEqual(engine.render_title("{label} ({event})", "Work", ""), "Work")
-        self.assertEqual(engine.render_title("{label}: {event}", "", "Budget review"), "Budget review")
-        self.assertEqual(engine.render_title("{event} [{label}]", "", "Budget review"), "Budget review")
-        self.assertEqual(engine.render_title("({label})", "", ""), "Busy")
+    def test_an_empty_title_leaves_no_stray_punctuation(self):
+        self.assertEqual(engine.render_title("Work ({event})", ""), "Work")
+        self.assertEqual(engine.render_title("Work: {event}", " "), "Work")
+        self.assertEqual(engine.render_title("({event})", ""), "Busy")
 
     def test_the_meeting_title_is_never_trimmed(self):
-        self.assertEqual(engine.render_title("{label}: {event}", "", "Sync w/ J.R."), "Sync w/ J.R.")
+        self.assertEqual(engine.render_title("{event}", "Sync w/ J.R."), "Sync w/ J.R.")
 
     def test_no_event_variable_means_no_titles(self):
-        cfg = dict(engine.DEFAULTS, label="Work", title_format="{label}")
+        cfg = dict(engine.DEFAULTS, title_format="Work")
         self.assertEqual(set(summaries(engine.build_desired(Calendar.from_ical(FEED), cfg, now=NOW))), {"Work"})
 
 
-class AltLabelTests(unittest.TestCase):
-    cfg = dict(engine.DEFAULTS, label="Work", include_titles=True,
-               alt_label_keywords=["ART"], alt_label="Teaching")
+class UpgradeTests(unittest.TestCase):
+    """Settings from before 0.3.2 had a label and an alternative label; their
+    titles must come out exactly as before."""
 
-    def test_keyword_switches_the_label(self):
+    def test_settings_from_before_templates(self):
+        for label, titles in (("Work", True), ("", True), ("Work", False), ("", False)):
+            cfg = {**engine.DEFAULTS, "title_format": None, "label": label, "include_titles": titles}
+            old = f"{label} (Budget review)" if label and titles else (label or ("Budget review" if titles else "") or "Busy")
+            self.assertEqual(engine.event_summary("Budget review", cfg), old)
+            self.assertNotIn("label", engine.upgrade_settings(cfg))
+
+    def test_labels_are_written_into_the_templates(self):
+        cfg = engine.upgrade_settings({**engine.DEFAULTS, "label": "Work", "title_format": "Michael: {label} ({event})",
+                                       "alt_label_keywords": ["ART"], "alt_label": "Teaching", "alt_title_format": ""})
+        self.assertEqual(cfg["title_format"], "Michael: Work ({event})")
+        self.assertEqual(cfg["alt_title_format"], "Michael: Teaching ({event})",
+                         "the alternative label stood in for the label")
+        self.assertNotIn("alt_label", cfg)
+
+    def test_alternative_template_with_both_labels(self):
+        cfg = engine.upgrade_settings({**engine.DEFAULTS, "label": "Work", "title_format": "{label}",
+                                       "alt_label": "", "alt_title_format": "{altlabel}: {event} · {label}"})
+        self.assertEqual(cfg["alt_title_format"], "{event} · Work", "an empty label is taken out")
+
+    def test_an_empty_label(self):
+        cfg = engine.upgrade_settings({**engine.DEFAULTS, "label": "", "title_format": "{label} ({event})"})
+        self.assertEqual(cfg["title_format"], "{event}")
+        self.assertEqual(cfg["alt_title_format"], "")
+
+    def test_new_settings_are_left_alone(self):
+        cfg = dict(engine.DEFAULTS, title_format="{event} ({label})")
+        self.assertIs(engine.upgrade_settings(cfg), cfg)
+
+
+class AltTitleTests(unittest.TestCase):
+    cfg = dict(engine.DEFAULTS, title_format="Work ({event})",
+               alt_label_keywords=["ART"], alt_title_format="Teaching ({event})")
+
+    def test_keyword_switches_the_title(self):
         self.assertEqual(engine.event_summary("ART 120 Drawing I", self.cfg), "Teaching (ART 120 Drawing I)")
         self.assertEqual(engine.event_summary("Studio: ART209", self.cfg), "Teaching (Studio: ART209)",
                          "a course number may follow")
@@ -194,26 +220,18 @@ class AltLabelTests(unittest.TestCase):
         self.assertTrue(engine.alt_rule_applies("Critique (ART 209)", self.cfg))
 
     def test_several_keywords_and_no_titles(self):
-        cfg = dict(self.cfg, alt_label_keywords=["ART", "DES"], title_format="{label}")
+        cfg = dict(self.cfg, alt_label_keywords=["ART", "DES"], title_format="Work", alt_title_format="Teaching")
         self.assertEqual(engine.event_summary("DES 101", cfg), "Teaching")
         self.assertEqual(engine.event_summary("Faculty meeting", cfg), "Work")
 
-    def test_its_own_event_title(self):
-        cfg = dict(self.cfg, alt_title_format="{event} ({altlabel})")
-        self.assertEqual(engine.event_summary("ART 120", cfg), "ART 120 (Teaching)")
-        self.assertEqual(engine.event_summary("Budget review", cfg), "Work (Budget review)",
-                         "other meetings keep the usual title")
-        cfg = dict(self.cfg, title_format="{label}", alt_title_format="Class: {event}")
-        self.assertEqual(engine.event_summary("ART 209", cfg), "Class: ART 209",
-                         "the rule can show titles even when others don't")
+    def test_the_rule_can_show_titles_when_others_dont(self):
+        cfg = dict(self.cfg, title_format="Work", alt_title_format="Class: {event}")
+        self.assertEqual(engine.event_summary("ART 209", cfg), "Class: ART 209")
         self.assertEqual(engine.event_summary("Budget review", cfg), "Work")
 
-    def test_both_labels(self):
-        cfg = dict(self.cfg, alt_title_format="{altlabel} · {label}")
-        self.assertEqual(engine.event_summary("ART 120", cfg), "Teaching · Work",
-                         "{label} stays the usual label in the rule's own title")
-        cfg = dict(self.cfg, alt_label="", alt_title_format="{altlabel}: {event}")
-        self.assertEqual(engine.event_summary("ART 120", cfg), "ART 120", "an empty one is taken out")
+    def test_empty_alternative_title_uses_the_usual_one(self):
+        cfg = dict(self.cfg, alt_title_format="")
+        self.assertEqual(engine.event_summary("ART 120", cfg), "Work (ART 120)")
 
     def test_no_keywords_changes_nothing(self):
         cfg = dict(self.cfg, alt_label_keywords=[])
@@ -222,7 +240,7 @@ class AltLabelTests(unittest.TestCase):
 
 class ServerAdditionsTests(unittest.TestCase):
     def test_free_toggle(self):
-        d = desired(include_titles=True, label="", include_free=True)
+        d = desired(title_format="{event}", include_free=True)
         by_title = {v[4]: v for v in d.values()}
         self.assertTrue(by_title["Lunch hold"][5], "Free meetings are marked free")
         self.assertFalse(by_title["Budget review"][5])

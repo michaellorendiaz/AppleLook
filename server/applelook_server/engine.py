@@ -24,12 +24,10 @@ MARKER = "OutlookBusySync"           # CATEGORIES tag identifying our events
 BUSY_STATUSES = {"BUSY", "TENTATIVE", "OOF", "WORKINGELSEWHERE"}
 
 DEFAULTS = {
-    "label": "Work",
     "include_titles": False,
-    "title_format": None,   # e.g. "{label} ({event})"; None = built from label/include_titles
+    "title_format": "Work",    # e.g. "Work ({event})"; "" = "Busy"
     "alt_label_keywords": [],  # meetings whose title has one of these words...
-    "alt_label": "",           # ...use this label instead (e.g. "ART" -> "Teaching")
-    "alt_title_format": "",    # ...and this title template ("" = the usual one)
+    "alt_title_format": "",    # ...use this title template instead ("" = the usual one)
     "include_location": False,
     "online_as_remote": True,
     "include_tentative": True,
@@ -130,15 +128,25 @@ def fetch_feed(url, attempts=3, delay=20):
             time.sleep(delay)
 
 
-def title_format(cfg):
-    """The title template. Settings saved before templates existed get the
-    template that reproduces their old titles exactly."""
-    if cfg.get("title_format") is not None:
-        return cfg["title_format"]
-    label = (cfg.get("label") or "").strip()
-    if cfg.get("include_titles"):
-        return "{label} ({event})" if label else "{event}"
-    return "{label}" if label else ""
+def upgrade_settings(cfg):
+    """Settings from before 0.3.2 kept a label and an alternative label beside the
+    templates, as {label} and {altlabel}. Write them into the templates, so the
+    titles come out exactly as before, and drop them."""
+    if "label" not in cfg and "alt_label" not in cfg and cfg.get("title_format") is not None:
+        return cfg
+    cfg = dict(cfg)
+    label = (cfg.pop("label", "") or "").strip()
+    alt = (cfg.pop("alt_label", "") or "").strip()
+    main = cfg.get("title_format")
+    if main is None:  # saved before templates existed
+        main = ("{label} ({event})" if cfg.get("include_titles") else "{label}") if label else \
+               ("{event}" if cfg.get("include_titles") else "")
+    own = cfg.get("alt_title_format") or ""
+    if not own and alt and "{label}" in main:
+        own = main.replace("{label}", "{altlabel}")  # the alternative label stood in for the label
+    cfg["title_format"] = fill(main, {"{label}": label})
+    cfg["alt_title_format"] = fill(own, {"{label}": label, "{altlabel}": alt})
+    return cfg
 
 
 SEPARATORS = " \t:;,.|/\\-\u2013\u2014\u00b7"
@@ -155,19 +163,22 @@ def tidy_template(template):
     return t
 
 
-def render_title(template, label, event, altlabel=""):
-    """Fill {label}, {altlabel} and {event}. An empty one is taken out of the
-    template first, so "{label} ({event})" with no title gives "Work", not
-    "Work ()". The meeting title itself is never trimmed or changed."""
-    values = {"{label}": label.strip(), "{altlabel}": altlabel.strip(), "{event}": event}
+def fill(template, values):
+    """Put values in for their variables. An empty one is taken out of the
+    template first, so "Work ({event})" with no title gives "Work", not "Work ()"."""
     empty = [tok for tok, val in values.items() if tok in template and not val.strip()]
     if empty:
         for tok in empty:
             template = template.replace(tok, "")
         template = tidy_template(template)
-    s = template
     for tok, val in values.items():
-        s = s.replace(tok, val)
+        template = template.replace(tok, val)
+    return template
+
+
+def render_title(template, event):
+    """Fill {event} with the meeting's title, which is never trimmed or changed."""
+    s = fill(template, {"{event}": event})
     return s if s.strip() else "Busy"
 
 
@@ -181,17 +192,12 @@ def alt_rule_applies(title, cfg):
 
 def event_summary(title, cfg):
     """The event title others see: the title template, or for meetings matching an
-    alternative keyword, its own template, where {altlabel} is the alternative
-    label. With no template of its own, the alternative label takes the place
-    of the label in the usual one."""
-    label, altlabel = cfg.get("label") or "", cfg.get("alt_label") or ""
-    template = title_format(cfg)
-    if alt_rule_applies(title, cfg):
-        if cfg.get("alt_title_format"):
-            template = cfg["alt_title_format"]
-        else:
-            label = altlabel
-    return render_title(template, label, title if "{event}" in template else "", altlabel)
+    alternative keyword, the alternative template when there is one."""
+    cfg = upgrade_settings(cfg)
+    template = cfg.get("title_format") or ""
+    if alt_rule_applies(title, cfg) and cfg.get("alt_title_format"):
+        template = cfg["alt_title_format"]
+    return render_title(template, title if "{event}" in template else "")
 
 
 def excluded(title, cfg):

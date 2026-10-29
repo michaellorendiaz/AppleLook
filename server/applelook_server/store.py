@@ -25,7 +25,7 @@ def load_settings():
     path = DATA / "settings.json"
     if path.exists():
         cfg.update(json.loads(path.read_text()))
-    return cfg
+    return engine.upgrade_settings(cfg)
 
 
 def save_settings(cfg):

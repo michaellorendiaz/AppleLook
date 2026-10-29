@@ -69,7 +69,7 @@ class AuthTests(unittest.TestCase):
         app, _ = make_app(auth="none")
         c = app.test_client()
         c.get("/")
-        self.assertEqual(c.post("/save", data={"label": "x"}).status_code, 400)
+        self.assertEqual(c.post("/save", data={"title_format": "x"}).status_code, 400)
 
 
 class SettingsTests(unittest.TestCase):
@@ -83,7 +83,7 @@ class SettingsTests(unittest.TestCase):
 
     def test_html_link_becomes_ics_and_options_save(self):
         page = self.save(feed_url="https://x.example/owa/calendar/a/b/calendar.html", apple_id="me@example.com",
-                         label="Work", include_titles="on", include_free="on", exclude_keywords="Lunch, Focus time")
+                         title_format="Work ({event})", include_free="on", exclude_keywords="Lunch, Focus time")
         self.assertIn("switched to the ICS version", page)
         cfg = json.loads((self.store.DATA / "settings.json").read_text())
         self.assertEqual(cfg["feed_url"], "https://x.example/owa/calendar/a/b/calendar.ics")
@@ -115,7 +115,7 @@ class SettingsTests(unittest.TestCase):
             page = self.c.post("/preview", follow_redirects=True, data={
                 "csrf": csrf_of(self.c), "feed_url": "https://x.example/calendar.ics",
                 "apple_id": "me@example.com", "icloud_password": "abcd-efgh-ijkl-mnop",
-                "target_calendar": "Family", "label": "Work", "include_titles": "on",
+                "target_calendar": "Family", "title_format": "Work ({event})", "include_titles": "on",
                 "skip_multiday_allday": "on"}).get_data(as_text=True)
         self.assertIn("A sync would add 0", page)
         self.assertRegex(page, r'name="include_titles" data-for="title_format" data-token="\{event\}" checked')
@@ -126,39 +126,39 @@ class SettingsTests(unittest.TestCase):
 
     def test_title_template_is_saved_and_drives_the_titles_checkbox(self):
         settings = lambda: json.loads((self.store.DATA / "settings.json").read_text())
-        page = self.save(label="Work", title_format="{event}   ({label})")
-        self.assertEqual(settings()["title_format"], "{event} ({label})")
+        page = self.save(title_format="{event}   (Work)")
+        self.assertEqual(settings()["title_format"], "{event} (Work)")
         self.assertTrue(settings()["include_titles"], "{event} in the template means titles are on")
         self.assertRegex(page, r'name="include_titles" data-for="title_format" data-token="\{event\}" checked')
         self.assertIn("Budget review (Work)", page)
-        self.save(label="Work", title_format="{label}", include_titles="on")
+        self.assertIn("Show actual meeting/event titles", page)
+        self.assertNotIn('name="label"', page, "no label box any more")
+        self.save(title_format="Work", include_titles="on")
         self.assertFalse(settings()["include_titles"], "the template wins over the checkbox")
 
-    def test_alternative_label_is_saved(self):
-        page = self.save(label="Work", title_format="{label} ({event})",
-                         alt_label_keywords="ART, DES", alt_label="Teaching")
+    def test_alternative_title_is_saved(self):
+        page = self.save(title_format="Work ({event})", alt_label_keywords="ART, DES",
+                         alt_title_format="Teaching  ({event})")
         cfg = json.loads((self.store.DATA / "settings.json").read_text())
-        self.assertEqual((cfg["alt_label_keywords"], cfg["alt_label"]), (["ART", "DES"], "Teaching"))
+        self.assertEqual((cfg["alt_label_keywords"], cfg["alt_title_format"]), (["ART", "DES"], "Teaching ({event})"))
         self.assertIn('value="ART, DES"', page)
         self.assertIn("Teaching (ART 120)", page)
         self.assertIn("<details open>", page, "Advanced opens when a rule is set")
-        self.save(label="Work", title_format="{label} ({event})", alt_label_keywords="ART",
-                  alt_label="Teaching", alt_title_format="{event}  ({altlabel})")
-        cfg = json.loads((self.store.DATA / "settings.json").read_text())
-        self.assertEqual(cfg["alt_title_format"], "{event} ({altlabel})")
+        self.assertNotIn('name="alt_label"', page, "no alternative label box any more")
 
-    def test_alternative_title_checkboxes(self):
-        page = self.save(label="Work", title_format="{label}", alt_label_keywords="ART",
-                         alt_label="Teaching", alt_title_format="{event}")
+    def test_alternative_title_checkbox(self):
+        page = self.save(title_format="Work", alt_label_keywords="ART", alt_title_format="{event}")
         self.assertRegex(page, r'data-for="alt_title_format" data-token="\{event\}" checked')
-        self.assertNotRegex(page, r'data-for="alt_title_format" data-token="\{altlabel\}" checked')
+        self.assertNotIn("{altlabel}", page)
         self.assertIn('placeholder="Enter keyword(s)"', page)
 
-    def test_old_settings_show_the_matching_template(self):
-        self.store.save_settings({**self.store.load_settings(), "label": "Work", "include_titles": True})
+    def test_old_settings_are_upgraded(self):
+        self.store.save_settings({**self.store.load_settings(), "title_format": "Michael: {label} ({event})",
+                                  "label": "Work", "alt_label_keywords": ["ART"], "alt_label": "Teaching"})
         page = self.c.get("/").get_data(as_text=True)
-        self.assertIn('value="{label} ({event})"', page)
-        self.assertIn("Work (Budget review)", page)
+        self.assertIn('value="Michael: Work ({event})"', page)
+        self.assertIn('value="Michael: Teaching ({event})"', page)
+        self.assertIn("Michael: Work (Budget review)", page)
 
     def test_password_saved_privately_and_never_shown(self):
         # no follow-up page load: with an Apple ID and password saved it would contact iCloud
