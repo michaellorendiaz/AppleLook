@@ -90,6 +90,10 @@ class SettingsTests(unittest.TestCase):
         self.assertTrue(cfg["include_titles"] and cfg["include_free"])
         self.assertFalse(cfg["include_tentative"], "an unticked box saves as off")
         self.assertEqual(cfg["exclude_keywords"], ["Lunch", "Focus time"])
+        self.assertTrue(cfg["skip_multiday_allday"], "Include multi-day unticked skips them")
+        self.save(include_multiday_allday="on")
+        cfg = json.loads((self.store.DATA / "settings.json").read_text())
+        self.assertFalse(cfg["skip_multiday_allday"])
 
     def test_bad_link_is_refused(self):
         self.assertIn("look like a calendar link", self.save(feed_url="not a link"))
@@ -116,10 +120,12 @@ class SettingsTests(unittest.TestCase):
                 "csrf": csrf_of(self.c), "feed_url": "https://x.example/calendar.ics",
                 "apple_id": "me@example.com", "icloud_password": "abcd-efgh-ijkl-mnop",
                 "target_calendar": "Family", "title_format": "Work ({event})", "include_titles": "on",
-                "skip_multiday_allday": "on"}).get_data(as_text=True)
+                "include_free": "on"}).get_data(as_text=True)
         self.assertIn("A sync would add 0", page)
         self.assertRegex(page, r'name="include_titles" data-for="title_format" data-token="\{event\}" checked')
-        self.assertRegex(page, r'name="skip_multiday_allday" checked')
+        self.assertRegex(page, r'name="include_free" checked')
+        self.assertNotRegex(page, r'name="include_multiday_allday" checked',
+                            "an unticked Include multi-day box means skip them")
         self.assertNotIn('name="takeover"', page)
         self.assertRegex(page, r'value="Family" selected')
         self.assertFalse((self.store.DATA / "settings.json").exists(), "Preview saves nothing")

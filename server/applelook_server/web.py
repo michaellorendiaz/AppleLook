@@ -145,9 +145,10 @@ def settings_from_form(f, cfg):
     cfg["feed_url"] = link or ""
     cfg["apple_id"] = f.get("apple_id", "").strip()
     cfg["target_calendar"] = f.get("target_calendar", "").strip()
-    for key in ("include_titles", "include_location", "include_tentative", "include_free",
-                "skip_multiday_allday"):
+    for key in ("include_titles", "include_location", "include_tentative", "include_free"):
         cfg[key] = key in f
+    # shown as "Include multi-day all-day events", like the options above it
+    cfg["skip_multiday_allday"] = "include_multiday_allday" not in f
     # the template is the truth; the checkboxes on the page only edit it
     cfg["title_format"] = " ".join(f.get("title_format", "").split())
     cfg["include_titles"] = "{event}" in cfg["title_format"]
